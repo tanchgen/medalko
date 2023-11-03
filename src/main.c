@@ -5,6 +5,7 @@
 
 // ----------------------------------------------------------------------------
 
+#include <measur.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +66,32 @@ int main(int argc, char* argv[]) {
   while (1) {
     stateProcess();
     ifaceClock();
+  }
+}
+
+
+static inline void stateProcess( void ){
+  // Обработаем Машину состояний
+
+  // Обработаем Машину состояний
+  switch( measState ){
+    case MEASST_OFF:
+      stateOff();
+      break;
+    case MEASST_REL_EN:
+      break;
+    case MEASST_START_PROB:
+      break;
+    case MEASST_END_PROB:
+      break;
+    case MEASST_PROC:
+      break;
+    case MEASST_FIN:
+      break;
+    case MEASST_FAULT:
+      break;
+    default:
+      break;
   }
 }
 

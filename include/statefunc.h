@@ -20,10 +20,9 @@ typedef enum {
 
 } eMiniState;
 
-extern eMiniState mesurRunWait;
+extern eMiniState measurRunWait;
 
-void stateBatOff( void );
-void stateSysOff( void );
+void stateOff( void );
 
 /**
  * @brief Функции обработки состояния MCUSTATE_SYS_START системы
@@ -32,162 +31,8 @@ void stateSysOff( void );
   *
   * @retval none
   */
-void stateSysStart( void );
+void stateStart( void );
 
-/**
- * @brief Функции обработки состояния MCUSTATE_I2C_ON системы
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
-void stateI2cOn( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_RUN_1 системы
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
-void stateRun1( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_RUN_2 системы
- *
- * @param[in]  self  дескриптор интерфейса
- *
- * @retval none
- */
-void stateRun2( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_RUN_3 системы
- *
- * @param[in]  none
- *
- * @retval none
- */
-void stateRun3( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_ZYNQ_PL_DONE системы
- *
- * @param[in]  self  дескриптор интерфейса
- *
- * @retval none
- */
-
-void stateMzuDone( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_IPWR_ON системы
- *
- * @param[in]  self  дескриптор интерфейса
- *
- * @retval none
- */
-void stateIStart( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_SYS_ON системы
- *
- * @param[in]  self  дескриптор интерфейса
- *
- * @retval none
- */
-void stateSysOn( void );
-
-void stateFpgaStart( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_PSU_START системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-//void statePsuStart( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_PSU_ON системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void statePsuOn( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_FAN_ON системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateFanOn( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_FPGA_1 системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateFpga1( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_FPGA_2 системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateFpga2( void );
-/**
- * @brief Функции обработки состояния MCUSTATE_FPGA_3 системы
- *
- * @param[in]  self  дескриптор интерфейса
- *
- * @retval none
- */
-void stateFpga3( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_FPGA_DONE системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateFpgaDone( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_OPT_ON системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateOptOn( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_PLL_LOCK системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void statePllLock( void );
-
-/**
- * @brief Функции обработки состояния MCUSTATE_FPGA_ON системы
-  *
-  * @param[in]  none
-  *
-  * @retval none
-  */
-void stateFpgaOn( void );
 
 static inline void extiPgOn( ePgood pg ){
   pgOnFlag[pg] = SET;
