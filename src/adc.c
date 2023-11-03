@@ -9,7 +9,6 @@
 #include "main.h"
 #include "adc.h"
 #include "gpio_arch.h"
-#include "i2c_arch.h"
 
 /** Структура дескриптора модуля АЦП: Бат. CMOS (Bat_CMOS, vbat) */
 sAdcHandle adcHandle = {

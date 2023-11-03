@@ -4,8 +4,6 @@
 #include <stddef.h>
 
 #include "main.h"
-#include "fpga_arch.h"
-#include "debug.h"
 
 /** Тайм-аут переходов между состояниями выводов GPIO FPGA_EN_x или FPGA_EN_x. */
 #define PWR_EN_STATE_TOUT       TOUT_100
@@ -17,14 +15,16 @@
 #define PWR_EN_STATE_TOUT10     TOUT_1000
 #define PWR_EN_STATE_TOUT15     TOUT_1500
 
-/* Таймаут готовности устройств на шине I2C */
-#define I2C_READY_TOUT      TOUT_1500
-
 /** Тайм-аут переходного процесса при изменении состояния вывода GPIO. */
 #define _GPIO_PIN_STATE_TRANSIENT_TOUT  (CONFIG_HZ)
 
 /** Тайм-аут процедуры антидребезга входов EXTI. */
 #define KEY_DEBOUNCE_TOUT  50
+
+#define ZOOM_TIM          TIM1
+#define ZOOM_TIM_CLK_EN   (RCC->APB2ENR |= RCC_APB2ENR_TIM1EN)
+#define ZOOM_TIM_IRQn     TIM1_UP_IRQn
+#define ZOOM_TIM_IRQH     TIM1_UP_IRQHandler
 
 #define KEY_TIM          TIM5
 #define KEY_TIM_CLK_EN   RCC_APB1ENR_TIM5EN
@@ -242,9 +242,9 @@ typedef union {
 } uGpioDeviation;
 
 
-extern FlagStatus mesurRun;
+extern FlagStatus measurRun;
 /** Состояние уровня запуска системы */
-extern eMcuState mesurState;
+extern eMcuState measurState;
 
 extern FlagStatus onCan;
 
@@ -279,6 +279,8 @@ extern sGpioPin gpioPinRelOn;
 
 
 // ===========================================================================================================
+void zoomOn( void );
+void zoomOff( void );
 
 void gpioIrqHandler5_9( uint32_t pin );
 void gpioIrqHandler10_15( uint32_t pin );
