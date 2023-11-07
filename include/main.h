@@ -2,6 +2,7 @@
 #define _MAIN_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "stm32_it.h"
 

@@ -224,9 +224,7 @@ void SysTick_Handler(void) {
   *
   * @retval	none
   */
-void _clock_timers(const struct iface *self)
-{
-  (void)self;
+void timersClock( void ){
 
 	static uint32_t     _prev_jiffies;
 	struct list_head    work_list;
@@ -292,18 +290,4 @@ void timerClock( void ){
   }
 }
 
-/**
-  * @brief	Инициализация подсистемы таймеров.
-  *
-  * @param[in]	self	дескриптор интерфейса
-  *
-  * @retval	none
-  */
-void _init_timers(const struct iface *self)
-{
-  (void)self;
-
-	/* Настраиваем системный таймер на заданную частоту. */
-	SysTick_Config(rccClocks.SYSCLK_Frequency / TICK_HZ);
-}
 

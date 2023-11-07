@@ -140,7 +140,8 @@ extern sAdcHandle adcHandle;
 static inline void adcPeakReset( sAdcHandle * adc){
   for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
     adc->paramStatus[i].prmPeakNok = SET;
-    paramPeakReset( &(adc->adcData[i]) );
+    adc->adcData[i].prmPeakMax = INT32_MIN;
+    adc->adcData[i].prmPeakMax = INT32_MAX;
   }
 }
 

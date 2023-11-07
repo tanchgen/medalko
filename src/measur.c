@@ -4,7 +4,7 @@
  *  Created on: 3 нояб. 2023 г.
  *      Author: jet
  */
-
+#include "tinyalloc.h"
 #include "times.h"
 #include "measur.h"
 
@@ -102,6 +102,11 @@ void totalProc( void ){
 }
 
 
+// Периодически выполняемая функция 
+void measClock( void ){
+}
+
+
 void measStartClean( void ){
   measDev.dataNum = 0;
   measDev.status.u32stat = 0;
@@ -110,7 +115,7 @@ void measStartClean( void ){
 
 void measInit( void ){
   sAlcoData * tmpAd;
-  if( (tmpAd = ta_alloc( sizeof( sAlcoData ) * MEAS_SEQ_NUM_MAX) ) == NULL) {
+  if( (tmpAd = (sAlcoData*)ta_alloc( sizeof( sAlcoData ) * MEAS_SEQ_NUM_MAX) ) == NULL) {
     // Ошибка выделения памяти
     assert_param( tmpAd != NULL );
   }

@@ -81,17 +81,22 @@ static inline void stateProcess( void ){
     case MEASST_OFF:
       stateOff();
       break;
-    case MEASST_REL_EN:
-      break;
+//    case MEASST_REL_EN:
+//      break;
     case MEASST_START_PROB:
+      stateStart();
       break;
     case MEASST_END_PROB:
+      stateEnd();
       break;
     case MEASST_PROC:
+      stateProc();
       break;
     case MEASST_FIN:
+      stateFin();
       break;
     case MEASST_FAULT:
+      stateFault();
       break;
     default:
       break;

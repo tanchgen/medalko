@@ -18,7 +18,7 @@
 
 typedef enum _eMesState {
   MEASST_OFF,
-  MEASST_REL_EN,
+//  MEASST_REL_EN,
   MEASST_START_PROB,
   MEASST_END_PROB,
   MEASST_PROC,

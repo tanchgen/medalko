@@ -142,7 +142,7 @@ void USB_HP_CAN1_TX_IRQHandler( void ){
 //	canTxIrqHandler();
 }
 void CAN1_TX_IRQHandler( void ) {
-	canTxIrqHandler();
+//	canTxIrqHandler();
 }
 
 void CAN1_RX1_IRQHandler( void ){

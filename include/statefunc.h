@@ -31,11 +31,11 @@ void stateOff( void );
   *
   * @retval none
   */
-inline void stateStart( void );
-inline void stateEnd( void );
-inline void stateProc( void );
-inline void stateFin( void );
-inline void stateFault( void );
+void stateStart( void );
+void stateEnd( void );
+void stateProc( void );
+void stateFin( void );
+void stateFault( void );
 
 
 #endif /* STATEFUNC_H_ */
