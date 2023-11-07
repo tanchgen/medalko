@@ -217,23 +217,30 @@ void Send_EP1(uint8_t* data, uint32_t len)		{
 
 //Send a packet on endpoint 1. Max packet lenght 4294967296 byte.
 void Send_EP1_Jumbo(uint8_t* data, uint32_t len)	{
-	if(len<32)	{											//If the packet is not bigger than 32 byte use the standard function Send_EP1.
+  uint32_t len_32;
+
+	if(len<32)	{											    // If the packet is not bigger than 32 byte use the standard function Send_EP1.
 		N_JUMBO_SUBPACKETS=1;
 		Send_EP1(data,len);
-		return;}	
-	uint32_t len_32 = len%32;								//Variable to check if the Jumbo packet size is a multiple o 32 byte and to calculate the last subpacket size.
-	N_JUMBO_SUBPACKETS = len/32;							//Calculation of number of packet to send.			
-	if((len_32) != 0) 	{
-		N_JUMBO_SUBPACKETS++;								//If the Jumbo packet size is not a multiple of 32 add 1 packet of the remaining data.
-		JUMBO_LAST_SUBPACKET_SIZE=len_32;}
-	else				{ 
-		JUMBO_LAST_SUBPACKET_SIZE=32;	}
-	JUMBO_BUFF_ADDR = (uint8_t*) data;						//Point JUMBO_BUFF_ADDR	to the data trasmission buffer.
-	Send_EP1(data,32);										//Send first packet of the Jumpo packet.
-	N_JUMBO_SUBPACKETS_TXED=1;		}						//Set the number of transmitted packets to 1.									
+		return;
+	}
+
+	len_32 = len%32;								      // Variable to check if the Jumbo packet size is a multiple o 32 byte and to calculate the last subpacket size.
+	N_JUMBO_SUBPACKETS = len/32;					// Calculation of number of packet to send.
+	if((len_32) != 0) {
+		N_JUMBO_SUBPACKETS++;								// If the Jumbo packet size is not a multiple of 32 add 1 packet of the remaining data.
+		JUMBO_LAST_SUBPACKET_SIZE=len_32;
+	}
+	else {
+		JUMBO_LAST_SUBPACKET_SIZE=32;
+	}
+	JUMBO_BUFF_ADDR = (uint8_t*) data;		// Point JUMBO_BUFF_ADDR	to the data trasmission buffer.
+	Send_EP1(data,32);										// Send first packet of the Jumpo packet.
+	N_JUMBO_SUBPACKETS_TXED=1;            // Set the number of transmitted packets to 1.
+}
 
 //Read a packet received on endpoint 1 and enable endpoint 1 to receive a new packet. The packet will be copied in the "Received_Data" array, and the leght of the packet will be written in the "len" variable.
-void Read_EP1(uint8_t* Received_data, uint32_t* len)		{
+void Read_EP1(uint8_t* Received_data, uint32_t* len) {
 	uint32_t N_Byte_Received = USB_COUNT1_RX & 0x03FF;	//Check the number of byte received
 	uint32_t ii=0;	
 	uint8_t* p_mem_8 = (uint8_t*) USB_RX1_BASE_32;
@@ -242,31 +249,39 @@ void Read_EP1(uint8_t* Received_data, uint32_t* len)		{
 		Received_data[ii] = *p_mem_8;
 		ii++;
 		p_mem_8++;
-		if(ii==N_Byte_Received) {break;}
+		if(ii==N_Byte_Received) {
+		  break;
+		}
 		Received_data[ii] = *p_mem_8;
 		ii++;
-		p_mem_8+=3;					}
+		p_mem_8+=3;
+	}
 	*len=N_Byte_Received;								//Copy the lenght of the received packet in the variable *len.
-	EN_RX_EP1();								}		//Enable the endpoint 1 reception buffer to receive any new packet.
-
+	EN_RX_EP1();										    //Enable the endpoint 1 reception buffer to receive any new packet.
+}
 
 //Enpoint 2 functions.
 
 //Set endpoint 2 reception to VALID.
 void EN_RX_EP2()	{
-	USB_ENP2R = ((~USB_ENP2R) & 0x3000) | 0x8682;	}
+	USB_ENP2R = ((~USB_ENP2R) & 0x3000) | 0x8682;
+}
 
 //Set endpoint 2 reception to NAK.
 void DIS_RX_EP2()	{
-	USB_ENP2R = ((~USB_ENP2R) & 0x2000) | ((USB_ENP2R) & 0x1000) | 0x8682;	}
+	USB_ENP2R = ((~USB_ENP2R) & 0x2000) | ((USB_ENP2R) & 0x1000) | 0x8682;
+}
 
 //Set endpoint 2 transmission to VALID.
 void EN_TX_EP2()	{
-	USB_ENP2R = ((~USB_ENP2R) & 0x0030) | 0x8682;	}
+	USB_ENP2R = ((~USB_ENP2R) & 0x0030) | 0x8682;
+}
 	
 //Set endpoint 2 transmission to NAK.
 void DIS_TX_EP2()	{
-	USB_ENP2R = ((~USB_ENP2R) & 0x0020) | ((USB_ENP2R) & 0x0010) | 0x8682;	}
+	USB_ENP2R = ((~USB_ENP2R) & 0x0020) | ((USB_ENP2R) & 0x0010) | 0x8682;
+}
+
 
 
 //Management functions.

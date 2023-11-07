@@ -4,8 +4,11 @@
  *  Created on: 3 нояб. 2023 г.
  *      Author: jet
  */
+#include <stdio.h>
+
 #include "tinyalloc.h"
 #include "times.h"
+#include "usb_vcp.h"
 #include "measur.h"
 
 eMeasState measState = MEASST_OFF;
@@ -13,12 +16,59 @@ FlagStatus measOnNeed = RESET;
 FlagStatus measRun = RESET;
 FlagStatus onCan;
 
+uint32_t sendTout;
+uint32_t sendCount;
+eSendState sendState;
+uint8_t sendBuf[96];
+
 
 const uint16_t measPressLimMin = 150;
 const float measPressLimMax = 1500;
 const float measAlkoLimMin = 15.0;
 
 sMeasur measDev;
+
+// ================ Private Function =============================
+// ==================================================================
+
+// ----------------------- USB transfer functions ----------------------
+size_t sendTmPrep( uint8_t * buf ){
+  size_t sz = 0;
+
+  sz = sprintf( (char*)buf, "\"alcoData\":{\"startTime\":%ld.%ld,\"stopTime\":%ld.%ld,\"measData\":{", \
+                measDev.secsStart, measDev.msecStart, measDev.secsStop, measDev.msecStop );
+  return sz;
+}
+
+size_t sendTmCont( uint8_t * buf ){
+  uint32_t i = sendCount;
+  uint32_t sz = 0;
+
+  if( i < measDev.dataNum ){
+    if( sendCount ){
+      // Не первая запись - добавим запяту, разделяющую записи
+      *buf++ = ',';
+      sz = 1;
+    }
+    // Давление
+    sz += sprintf( (char*)buf, "{\"press\":%ld,\"alco\":%ld, \"temp\":%ld}", \
+                    measDev.alcoData[i].press,
+                    measDev.alcoData[i].alco,
+                    measDev.alcoData[i].temp );
+  }
+
+  return sz;
+}
+
+size_t sendTmEnd( uint8_t * buf ){
+  // Закрывающие скобки
+  *buf++ = '}';
+  *buf++ = '}';
+
+  return 2UL;
+}
+
+// ---------------------------------------------------------------------------------------------
 
 
 uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
@@ -104,6 +154,61 @@ void totalProc( void ){
 
 // Периодически выполняемая функция 
 void measClock( void ){
+  uint32_t size;
+  static uint8_t errCount;
+
+#define USB_SEND_TOUT         5000
+
+  if( measDev.status.sendStart ){
+    if( sendTout && (sendTout <= mTick) ){
+      if( ++errCount == 2 ){
+        // Неудалось отправить
+        measDev.status.sendStart = RESET;
+        measState = MEASST_FAULT;
+      }
+      else {
+        sendTout += USB_SEND_TOUT;
+      }
+    }
+
+    if( VCP_Transmitted ){
+      size_t (*sendTmFunc)( uint8_t * buf );
+      switch (sendState ){
+        case SEND_START:
+          sendTmFunc = sendTmPrep;
+          sendState++;
+          break;
+        case SEND_CONT:
+          sendTmFunc = sendTmCont;
+          if( ++sendCount == measDev.dataNum ){
+            sendState++;
+          }
+          break;
+        case SEND_FIN:
+          sendTmFunc = sendTmEnd;
+          sendState++;
+          break;
+        case SEND_END:
+          sendTmFunc = NULL;
+          measDev.status.sendStart = RESET;
+          measDev.status.sent = SET;
+          sendState++;
+          break;
+        default:
+          sendTmFunc = NULL;
+          sendTout = 0;
+          break;
+
+      }
+
+      if( sendTmFunc != NULL ){
+        size = sendTmFunc( sendBuf );
+        assert_param( size && (size <= 96) );
+        Write_VCP( sendBuf, size );
+        sendTout += USB_SEND_TOUT;
+      }
+    }
+  }
 }
 
 

@@ -31,7 +31,7 @@
 #define FPGA_DONE_TOUT (TOUT_1000 * 15)
 
 #if defined(DEBUG)
-#define SWO_ENABLE      0
+#define SWO_ENABLE      1
 
 #define DEBUG_TRACE     0
 #define DEBUG_TRACE_D   1

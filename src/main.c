@@ -138,9 +138,7 @@ static void swoCfg( uint32_t cpuCoreFreqHz ) {
 
     // PB3
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
-    GPIOB->CRL |= (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | GPIO_MODE_OPP_10;
-    GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR3;
-    GPIOB->AFR[0] &= ~(0xF<<(3 * 4));
+    GPIOB->CRL |= (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | GPIO_MODE_AFPP_50;
     DBGMCU->CR |= DBGMCU_CR_TRACE_IOEN; // Enable IO trace pins
 
     if (!(DBGMCU->CR & DBGMCU_CR_TRACE_IOEN))

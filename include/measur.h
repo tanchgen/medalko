@@ -26,6 +26,13 @@ typedef enum _eMesState {
   MEASST_FAULT,
 } eMeasState;
 
+typedef enum {
+  SEND_START,
+  SEND_CONT,
+  SEND_FIN,
+  SEND_END
+} eSendState;
+
 typedef union _sMeasStatus {
   struct {
     uint32_t measStart: 1;
@@ -34,6 +41,7 @@ typedef union _sMeasStatus {
     uint32_t alcoLow: 1;
     uint32_t relStart: 1;
     uint32_t relEnd: 1;
+    uint32_t sendStart: 1;
     uint32_t sent: 1;
   };
   uint32_t u32stat;

@@ -136,7 +136,7 @@ inline void stateEnd( void ){
       case MSTATE_NON:
         zoomOff();
         // TODO: Запуск оптавки данных
-        measSendStart();
+        measDev.status.sendStart = SET;
         measRunWait = MSTATE_ON;
         break;
       case MSTATE_ON:
