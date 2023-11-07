@@ -2,68 +2,36 @@
 
 #include "main.h"
 
-void gpioPinSet( sGpioPin *pin ){
-  pin->gpio->BSRR = pin->pin;
-  pin->newstate = SET;
-}
-
-void gpioPinSetNow( sGpioPin *pin ){
-  pin->gpio->BSRR = pin->pin;
-  if(pin->state == Bit_RESET ){
-    pin->change = SET;
-  }
-  pin->state = pin->newstate = Bit_SET;
-}
-
-
-void gpioPinReset( sGpioPin * pin ){
-  pin->gpio->BRR = pin->pin;
-  pin->newstate = RESET;
-}
-
-void gpioPinResetNow( sGpioPin * pin ){
-  pin->gpio->BRR = pin->pin;
-  if(pin->state != Bit_RESET ){
-    pin->change = SET;
-  }
-  pin->state = pin->newstate = Bit_RESET;
-}
-
 void gpioPinResetNowTout( uintptr_t arg ){
   sGpioPin *pin = (sGpioPin *)arg;
 
   gpioPinResetNow( pin );
 }
 
-void gpioPinCmd( sGpioPin *pin, FlagStatus act ){
-  if( act == RESET ){
-    gpioPinReset( pin );
-  }
-  else {
-    gpioPinSet( pin );
-  }
-}
-
-void gpioPinCmdNow( sGpioPin *pin, FlagStatus act ){
-  if( act == RESET ){
-    gpioPinResetNow( pin );
-  }
-  else {
-    gpioPinSetNow( pin );
-  }
-}
-
 
 void gpioPinSetup(sGpioPin *pin) {
-  GPIO_InitTypeDef  gpio_init_struct;
+  assert_param( pin->gpioNum <= 3);
+
+  if( pin->gpio == GPIOA ){
+    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+  }
+  else if( pin->gpio == GPIOB ){
+    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+  }
+  else if( pin->gpio == GPIOC ){
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+  }
+  else if( pin->gpio == GPIOD ){
+    RCC->APB2ENR |= RCC_APB2ENR_IOPDEN;
+  }
 
   /* Установим начальное состояние вывода GPIO для режимов Open-Drain и Push-Pull. */
   if( (pin->mode & 0x3) && ((pin->mode &0x8) == 0) ) {
     // GPIO pin mode - output
-    gpioPinCmd( pin->gpio->ODR , pin->pin, pin->state);
+    gpioPinCmd( pin, pin->state == Bit_SET );
   }
   else if( pin->mode == GPIO_MODE_IUD ){
-    gpioPinCmd( pin->gpio->ODR , pin->pin, pin->pupd );
+    gpioPinCmd( pin, (FlagStatus)pin->pupd );
   }
 
   // MODE
@@ -116,7 +84,7 @@ bool changePinState(sGpioPin *pin ){
   if (pin->state != pin->newstate) {
     if( (pin->mode & 0x3) && ((pin->mode &0x8) == 0) ) {
       // GPIO pin mode - output
-      gpioPinCmd( pin->gpio->ODR , pin->pin, pin->state);
+      gpioPinCmd( pin, (FlagStatus)pin->state);
     }
     pin->state = pin->newstate;
     pin->change = SET;
@@ -127,18 +95,67 @@ bool changePinState(sGpioPin *pin ){
   return false;
 }
 
-bool changeExtiPinState( sExtiPin *pin ){
-
-  if (pin->state != pin->newstate) {
-    pin->state = pin->newstate;
-    pin->change = SET;
-    return true;
-  }
-  return false;
-}
+//bool changeExtiPinState( sExtiPin *pin ){
+//
+//  if (pin->state != pin->newstate) {
+//    pin->state = pin->newstate;
+//    pin->change = SET;
+//    return true;
+//  }
+//  return false;
+//}
 
 void changePinStateTout( uintptr_t arg ){
   sGpioPin *pin = (sGpioPin *)arg;
   changePinState( pin );
 }
 
+void gpioPinCmd( sGpioPin *pin, FlagStatus act ){
+  if( act == RESET ){
+    gpioPinReset( pin );
+  }
+  else {
+    gpioPinSet( pin );
+  }
+}
+
+void gpioPinCmdNow( sGpioPin *pin, FlagStatus act ){
+  if( act == RESET ){
+    gpioPinResetNow( pin );
+  }
+  else {
+    gpioPinSetNow( pin );
+  }
+}
+
+
+void gpioPinSet( sGpioPin *pin ){
+  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  pin->gpio->BSRR = pin->pin;
+  pin->newstate = Bit_SET;
+}
+
+void gpioPinSetNow( sGpioPin *pin ){
+  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  pin->gpio->BSRR = pin->pin;
+  if(pin->state == Bit_RESET ){
+    pin->change = SET;
+  }
+  pin->state = pin->newstate = Bit_SET;
+}
+
+
+void gpioPinReset( sGpioPin * pin ){
+  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  pin->gpio->BRR = pin->pin;
+  pin->newstate = Bit_RESET;
+}
+
+void gpioPinResetNow( sGpioPin * pin ){
+  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  pin->gpio->BRR = pin->pin;
+  if(pin->state != Bit_RESET ){
+    pin->change = SET;
+  }
+  pin->state = pin->newstate = Bit_RESET;
+}

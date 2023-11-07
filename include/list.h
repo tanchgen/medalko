@@ -6,7 +6,7 @@
 #ifdef STM32F4XX
 #include "stm32f4xx.h"
 #else
-#include "stm32f2xx.h"
+#include "stm32f10x.h"
 #endif // STM32F4XX
 
 

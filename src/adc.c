@@ -9,44 +9,38 @@
 #include "main.h"
 #include "adc.h"
 #include "gpio_arch.h"
+#include "measur.h"
+
+#define R1          10000L       // Сопротивление резистора R1
+#define LN_RT25     9.21034     // ln(Rt) при 25гр.Ц
+#define B25_50      3900
+#define B25_80      3930
+#define B25_85      3934
+#define B25_100     3944
+#define _1_298K     0.0033557   // Обратная величина от (25 + 273)гр.Ц
+
+#define PRESS_NUL   2500        // Напряжение нулевого давления
 
 /** Структура дескриптора модуля АЦП: Бат. CMOS (Bat_CMOS, vbat) */
 sAdcHandle adcHandle = {
   .adcOn = RESET,
   .adcOk = RESET,
-  .clrBatFlag = (volatile FlagStatus *) BKPSRAM_BASE,
 };
 
-
-/** Структура дескриптора таймера включения-выключения Bat_CMOS. */
-struct timer_list  batClrTimer;
-/** Структура дескриптора таймера включения-выключения Bat_CMOS. */
-struct timer_list  adcTimer;
-/** Структура дескриптора таймера таймаута сброса мин/макс АЦП */
-struct timer_list  adcPeakTimer;
-
-/** Указатель на обработчик таймера включения-выключения батареи Bat_CMOS. */
-void (*batClrHandler)(sGpioPin *);
+sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
 
 
 #define ADC_KPARAM_0    (4096L)   // Делитель для VBAT: 10/20
 
-const uint16_t adcKparam[ADC_PARAM_NUM] = {
+const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0,
+    ADC_KPARAM_0,
+    ADC_KPARAM_0,
+    ADC_KPARAM_0
 };
 
-
-const eParamId adcDeviPrmid[ADC_PARAM_NUM] = {
-    PRM_VIN,                // Флаг изменения параметра и/или min-max
-};
-
-const ePrmType adcDeviPrmtype[ADC_PARAM_NUM] = {
-    PRM_TYPE_PEAK,                // Флаг изменения параметра и/или min-max
-};
-
-const ePwrLine adcPwrLine[ADC_PARAM_NUM] = {
-    PWR_LINE_VBAT,                // Флаг изменения параметра и/или min-max
-};
 
 void adcStart( void );
 
@@ -74,63 +68,38 @@ inline void movAvgS( int16_t *avg, int32_t pt ){
 }
 
 
-inline void adcDataReset( sAdcHandle * adc, eAdcParam num ){
-  timerModArg( &adcPeakTimer, TOUT_100, num );
-  adc->adcOk = RESET;
-  adc->adcData[num].status.u8stat = 0;
-}
+//inline void adcDataReset( sAdcHandle * adc, eAdcPrm num ){
+//  timerModArg( &adcPeakTimer, TOUT_100, num );
+//  adc->adcOk = RESET;
+//  adc->adcData[num].u16status = 0;
+//}
+//
+//void adcPeakTout( uintptr_t arg ){
+//  adcPeakReset( &(adcHandle), (eAdcPrm)arg  );
+//}
 
-void adcPeakTout( uintptr_t arg ){
-  adcPeakReset( &(adcHandle), (eAdcParam)arg  );
-}
 
 /**
-  * @brief  Обновление данных телеметрии АЦП.
-  *
-  * @param[out] to    буфер данных телеметрии АЦП
-  *
-  * @retval none
+  * @brief  This function configures DMA for transfer of data from ADC
+  * @param  None
+  * @retval None
   */
-void refreshAdcParamTm(eAdcParam adcopt, sAdcParamTm *to){
-  sParamData  *adcdata = &(adcHandle.adcData[adcopt]);
+void adcDmaInit(void) {
+  // Для синхронной работы требуется четное число каналов
+  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
 
+  /*## Configuration of DMA ##################################################*/
+  /* Enable the peripheral clock of DMA */
+  RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 
-// XXX: Привести в соответствие с форматом регистров телеметрии
-// ----------- 3.3V_OPT ------------------------
-  to->paramNok = adcHandle.paramStatus[adcopt].paramNok;
-  to->paramPeakNok = adcHandle.paramStatus[adcopt].paramNok;
-  to->paramLowLim = adcdata->status.onLowAlrm;
-  to->paramHiLim = adcdata->status.onHiAlrm;
-
-  if ( to->paramNok == RESET ) {
-    to->param  = pmbus_data_regular_to_linear_11( adcdata->now.param );
-    to->paramPeakMin  = pmbus_data_regular_to_linear_11( adcdata->now.peakMin );
-    to->paramPeakMax = pmbus_data_regular_to_linear_11( adcdata->now.peakMax );
-  }
-  else{
-    to->param  = 0x7bff;
-    to->paramPeakMin = 0x7bff;
-    to->paramPeakMax = 0x7bff;
-  }
-  to->paramLowAlrmLimit  = pmbus_data_regular_to_linear_11( adcdata->now.limitOnLow );
-  to->paramHiAlrmLimit  = pmbus_data_regular_to_linear_11( adcdata->now.limitOnHi );
-
-#if DEBUG_DATA
-    trace_printf("ADC param %d\n", adcdata->paramAdc);
-#endif
-}
-
-size_t refreshAdcTm( sAdcParamTm * padctm ){
-  (void) padctm;
-  size_t sz = 0;
-
-
-  for( eAdcParam i = 0; i < ADC_PARAM_NUM; i++, padctm++ ){
-    refreshAdcParamTm( i, padctm );
-    sz += sizeof( sAdcParamTm );
-  }
-
-  return sz;
+  /* Configure the DMA transfer */
+  DMA1_Channel1->CPAR = (uint32_t)&(ADC1->DR);
+  DMA1_Channel1->CMAR = (uint32_t)adcHandle.adcVprm;
+  DMA1_Channel1->CCR = DMA_MemoryDataSize_Word | DMA_PeripheralDataSize_Word
+      | DMA_CCR1_MINC | DMA_CCR1_CIRC | DMA_CCR1_TCIE | DMA_CCR1_TEIE | DMA_CCR1_PL_1;
+  /* Set DMA transfer addresses of source and destination */
+  DMA1_Channel1->CNDTR = ADC_PRM_NUM/2;
+  NVIC_SetPriority( DMA1_Channel1_IRQn, 2 );
 }
 
 
@@ -140,55 +109,43 @@ void adcInit(void){
 
   // Вкл тактирование АЦП
   RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;// | RCC_APB2ENR_SYSCFGEN;
+  RCC->APB2ENR |= RCC_APB2ENR_ADC2EN;// | RCC_APB2ENR_SYSCFGEN;
 
   ADC1->CR2 &= ~ADC_CR2_ADON;
+  ADC2->CR2 &= ~ADC_CR2_ADON;
 
   // Режим сканирования
-  ADC1->CR1 = ADC_CR1_SCAN;
-  // Режим перебора каналов и DMA
-  ADC1->CR2 = ADC_CR2_DMA | ADC_CR2_DDS | ADC_CR2_CONT;
-  // Выбор триггера для преобразования
-  // TIM8_TRGO
-  ADC1->CR2 |= ADC_CR2_EXTSEL_3 | ADC_CR2_EXTSEL_2 | ADC_CR2_EXTSEL_1;
-  // Rising edge
-  ADC1->CR2 |= ADC_CR2_EXTEN_0;
-  // Конфигурация тактирования АЦП - PCLK/4 (15MHz)
-  ADC->CCR = (ADC->CCR & ~ADC_CCR_ADCPRE) | ADC_CCR_TSVREFE;
+  ADC1->CR1 = ADC_CR1_SCAN | ADC_CR1_DUALMOD_1 | ADC_CR1_DUALMOD_2;
+  ADC2->CR1 = ADC_CR1_SCAN;
+  // Режим перебора каналов и DMA Выбор триггера для преобразования TIM3_TRGO
+  ADC1->CR2 = ADC_CR2_TSVREFE | ADC_CR2_DMA | ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
+  ADC2->CR2 = ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
 
-  // Меряем 1 каналов: канал 0 (ADC_VIN) и Vref(Ch17)
-  ADC1->SQR1 = (ADC_CH_NUM - 1) << 20;
-  ADC1->SQR3 = (VBAT_CH << 0) | (17 << 5);
+  // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
+  ADC1->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5);
+  // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
+  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
+  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
-  // Длительность сэмпла = 84 ADCCLK
-  ADC1->SMPR1 = ADC_SMPR1_SMP17;
-  ADC1->SMPR2 = ADC_SMPR2_SMP0;
+  // Длительность сэмпла = 13.5 ADCCLK
+  ADC1->SMPR1 = ADC_SMPR1_SMP17_1;
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1;
+  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
-// ---------- DMA ADC -------------------------------
-  RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
-
-//  DMA_StructInit(&dma_init_struct);
-//
-//  dma_init_struct.DMA_Channel = DMA_Channel_0;
-//  dma_init_struct.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
-//  dma_init_struct.DMA_Memory0BaseAddr     = (uint32_t)&adcHandle.adcVrtcbat;
-//  dma_init_struct.DMA_DIR                = DMA_DIR_PeripheralToMemory;
-//  dma_init_struct.DMA_BufferSize         = 2;
-//  dma_init_struct.DMA_MemoryInc          = DMA_MemoryInc_Enable;
-//  dma_init_struct.DMA_Mode               = DMA_Mode_Circular;
-//  dma_init_struct.DMA_Priority           = DMA_Priority_Low;
-//
-//  DMA_Init(DMA2_Stream4, &dma_init_struct);
-//
-
-  DMA2_Stream4->PAR = (uint32_t) (&(ADC1->DR));
-  // Mem_inc, Mem 16bit, Periph 16bit, Circ mode, TC interrupt
-  DMA2_Stream4->CR = DMA_Channel_0 | DMA_MemoryDataSize_HalfWord | DMA_PeripheralDataSize_HalfWord
-                      | DMA_SxCR_MINC | DMA_SxCR_CIRC | DMA_SxCR_TCIE | DMA_SxCR_TEIE;
-  DMA_ClearITPendingBit( DMA2_Stream4, DMA_IT_TCIF0 );
-
-  NVIC_SetPriority( DMA2_Stream4_IRQn, 2 );
+  ADC1->CR2 |= ADC_CR2_ADON;
+  ADC2->CR2 |= ADC_CR2_ADON;
+  // Wait for ADC ON >= (2 ADC_CLK)
+  for( uint32_t wait = (32 >> 1); wait; wait-- )
+  {}
+  ADC1->CR2 |= ADC_CR2_CAL;
+  ADC2->CR2 |= ADC_CR2_CAL;
+  // Wait ADC1 CAL and ADC2 CAL
+  while( (ADC1->CR2 |= ADC_CR2_CAL) || (ADC2->CR2 |= ADC_CR2_CAL) )
+  {}
 
 }
+
 
 /**
   * @brief  Настройка вывода GPIO для АЦП 3.3V_OPT1-5
@@ -196,10 +153,11 @@ void adcInit(void){
   *
   * @retval None
   */
-inline void adcGpioInit( void ){
-  RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+static inline void adcGpioInit( void ){
 
-  GPIOB->MODER |= GPIO_MODER_MODER0;      // VBat
+  gpioPinSetup( &gpioPinAdcT );
+  gpioPinSetup( &gpioPinAdcPress );
+  gpioPinSetup( &gpioPinAdcAlco );
 }
 
 
@@ -213,7 +171,7 @@ inline void adcTrigTimInit( void ){
   uint16_t psc;
   uint8_t rc;
 
-  RCC->APB2ENR |= ADC_TIM_CLK_EN;
+  ADC_TIM_CLK_EN;
 
 //  TODO: Сделать расчет psc
   rc = timPscSet( ADC_TIM, ADC_TIM_FREQ, &psc );
@@ -234,21 +192,30 @@ inline void adcTrigTimInit( void ){
 }
 
 
+void adcPrmInit( sAdcData * prm ){
+  prm->u16status = 0;
+
+  prm->prm = 0;
+
+  prm->prmPeakMax = (int32_t)(~(0UL >> 1));
+  prm->prmPeakMin = (int32_t)(0UL >> 1);
+}
+
+
 void adcStart( void ){
   // Вкл тактирование АЦП
-//  RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-//  ADC->CCR |= ADC_CCR_VBATEN;
 
   // Опять включаем АЦП после калибровки
-  ADC1->CR2 |= ADC_CR2_ADON;
-
-  DMA2_Stream4->M0AR = (uint32_t)(&(adcHandle.adcVparam[0]));
-  DMA2_Stream4->NDTR = ADC_CH_NUM ;
+//  ADC1->CR2 |= ADC_CR2_ADON;
 
   adcHandle.adcOn = SET;
   // Включаем прерывание от DMA
-  NVIC_EnableIRQ( DMA2_Stream4_IRQn );
-  DMA2_Stream4->CR |= DMA_SxCR_EN;
+  /* Configure NVIC to enable DMA interruptions */
+  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /*## Activation of DMA #####################################################*/
+  /* Enable the DMA transfer */
+  DMA1_Channel1->CCR |= DMA_CCR1_EN;
+
   ADC_TIM->CR1 |= TIM_CR1_CEN;
 //  ADC1->CR2 |= ADC_CR2_SWSTART;
 }
@@ -268,10 +235,10 @@ FlagStatus adcStop( void ){
     // ADC запущен - принудительно останавливавем
     ADC1->CR2 &= ~ADC_CR2_ADON;
     // Выключаем DMA
-    DMA2_Stream4->CR &= ~DMA_SxCR_EN;
+    DMA1_Channel1->CCR &= ~DMA_CCR1_EN;
 
     // Выключаем прерывание от DMA
-    NVIC_DisableIRQ( DMA2_Stream4_IRQn );
+    NVIC_DisableIRQ( DMA1_Channel1_IRQn );
 
     adcHandle.adcOn = RESET;
     adcHandle.adcOk = RESET;
@@ -287,11 +254,7 @@ FlagStatus adcStop( void ){
   * @param  None
   * @retval None
   */
-void ADC1_IRQHandler( void ){
-  if ((ADC1->SR & ADC_SR_OVR) != 0) {
-    ADC1->SR &= ~ADC_SR_OVR; /* Clears the pending bit */
-  }
-}
+void ADC1_IRQHandler( void ){ while(1){} }
 
 /**
   * @brief  Обработка прерывания DMA АЦП.
@@ -299,249 +262,72 @@ void ADC1_IRQHandler( void ){
   *
   * @retval none
   */
-void DMA2_Stream4_IRQHandler( void ){
-  if ((DMA2->HISR & DMA_HISR_TEIF4) != RESET){
+void DMA1_Channel1_IRQHandler( void ){
+  if ((DMA1->ISR & DMA_ISR_TEIF1) != RESET){
     // Ошибка работы DMA ADC
-    DMA2->HIFCR |= DMA_HIFCR_CTEIF4;
+    DMA1->IFCR |= DMA_IFCR_CTEIF4;
     // Снимаем флаг готовности данных
     adcHandle.adcOk = RESET;
   }
-  if ((DMA2->HISR & DMA_HISR_TCIF4) != RESET){
+  if ((DMA1->ISR & DMA_ISR_TCIF1) != RESET){
     // Выставляем флаг готовности данных
     adcHandle.adcOk = SET;
-    DMA2->HIFCR |= DMA_HIFCR_CTCIF4;
+    DMA2->IFCR |= DMA_IFCR_CTCIF1;
   }
   else {
     // Снимаем флаг готовности данных
     adcHandle.adcOk = RESET;
-    errHandler( ERR_UNKNOWN );
-    assert_param( 0 );
+    while(1)
+    {}
   }
 }
 
-bool updateAdcOptTm( eAdcParam adcparam, size_t regaddr, uint16_t regdata ){
-  sParamData * adcdata = &(adcHandle.adcData[adcparam]);
-
-  switch (regaddr) {
-    case 0:
-      adcdata->status.onLowAlrm = RESET;
-      adcdata->status.onHiAlrm = RESET;
-      break;
-    case offsetof(sAdcParamTm, paramPeakMin):
-       adcdata->now.peakMin = NAN;
-      break;
-    case offsetof(sAdcParamTm, paramPeakMax):
-           adcdata->now.peakMax = NAN;
-      break;
-    case offsetof(sAdcParamTm, paramLowAlrmLimit):
-      adcdata->now.limitOnLow = fromLinear11( (uint32_t)regdata, 1000 );
-      break;
-    case offsetof(sAdcParamTm, paramHiAlrmLimit):
-    adcdata->now.limitOnHi = fromLinear11( (uint32_t)regdata, 1000 );
-      break;
-    default:
-      break;
-  }
-
-  return 0;
-}
-
-/**
-  * @brief  Обновление данных АЦП на полученные по UART
-  *
-  * @param[in]  from_offset смещение регистра от начала поля данных
-  * @param[in]  from    указатель на значение регистра
-  * @param[in]  from_size длина значения регистра
-  *
-  * @retval   false Успешное обновление данных
-  *           true  Ошибка при обновлении данных
-  */
-bool arch_updateAdcTm( size_t regaddr, uint16_t regdata ){
-  eAdcParam i;
-
-  for( i = 0; regaddr >= sizeof(sAdcParamTm); i++){
-    regaddr -= sizeof(sAdcParamTm);
-  }
-
-  return updateAdcOptTm( i, regaddr, regdata );
-}
-
-
-void batClrTout( uintptr_t arg ){
-  void (**handler)(sGpioPin *) = (void (**)(sGpioPin *))(arg);
-
-  (*handler)( &gpioPinBatOff );
-}
-
-/**
-  * @brief  Обработка таймаута сброса напряжения Bat_CMOS при выключении ее
-  *         или раста напряжения при вклюбчении ее обратно.
-  *
-  * @param  arg тип: uintptr_t  указатель на структуру gpio_pin
-  *
-  * @retval None
-  */
-void batOffTout( sGpioPin * pin ){
-  (void)pin;
-
-  // Батарею выключили - напряжение не падает
-//  errHandler( ERR_BAT_DOWN );
-  adcHandle.batOffOk = RESET;
-  adcHandle.batOff = RESET;
-}
-
-/**
-  * @brief  Обработка таймаута роста напряжения Bat_CMOS при включении после
-  *         сброса напряжения при выключении батареи
-  *
-  * @param  pin указатель на структуру gpio_pin
-  *
-  * @retval None
-  */
-void batOnTout( sGpioPin * pin ){
-  (void)pin;
-
-  // Батарею выключили - напряжение не падает
-//  errHandler( ERR_BAT_UP );
-  adcHandle.vbatOk = RESET;
-  adcHandle.batOff = RESET;
-}
-
-/**
-  * @brief  Обработка таймаута отсрочки включения батареи Bat_CMOS
-  *
-  * @param  pin указатель на структуру gpio_pin выключателя батареи CMOS
-  *
-  * @retval None
-  */
-void batOnToutTout( sGpioPin * pin ){
-
-  // Включаем батарею Bat_CMOS
-  gpioPinResetNow( pin );
-  gpioPinResetNow( &gpioPinBatDisch );
-  if( adcHandle.adcOn == RESET ){
-    // Надо запустить АЦП
-    adcStart();
-  }
-
-  batClrHandler = batOnTout;
-  timerMod( &batClrTimer, BAT_ON_TOUT);
-}
-
-/**
-  * @brief  Старт выключения батареи CMOS
-  *
-  * @param  pin Указатель на структуру gpio_pin выключателя батареи CMOS
-  *
-  * @retval None
-  */
-void batOffStart( sGpioPin * pinBatOff, sGpioPin * pinBatDisch ){
-  // Выключаем батарею
-  gpioPinSetNow( pinBatOff );
-  // Включаем разрядник
-  gpioPinSetNow( pinBatDisch );
-  adcHandle.batOffOk = RESET;
-  adcHandle.vbatOk = RESET;
-  adcHandle.batOff = SET;
-
-  // Включаем таймер таймаута батареи
-  batClrHandler = batOffTout;
-  timerMod( &batClrTimer, BAT_OFF_TOUT );
-  if( adcHandle.adcOn == RESET ){
-    // Надо запустить АЦП
-    adcStart();
-  }
-}
-
-void batOffProcess( eAdcParam idx ){
-  uint16_t vbat = adcHandle.adcData[idx].now.param * 1000;
-
-  // Идет процесс сброса батареи Bat_CMOS
-
-  adcHandle.paramStatus[idx].paramNok = SET;
-  adcHandle.paramStatus[idx].paramPeakNok = SET;
-
-  if( (gpioPinBatOff.state == Bit_RESET) && (vbat > VBAT_ON_VOLT) ){
-    /* Идет процесс набора напряжения после сброса батареи Bat_CMOS
-     * и Напряжение достигло рабочего значения
-     */
-    adcHandle.vbatOk = SET;
-    adcHandle.batOff = RESET;
-    // Останавливаем таймер таймаута
-    timerDel(&batClrTimer);
-  }
-  else if( (adcHandle.batOffOk == RESET)
-            && (gpioPinBatOff.state == Bit_SET)
-            && (vbat < VBAT_OFF_VOLT) )
-  {
-    /* Идет процесс сброса батареи Bat_CMOS
-     * и Напряжение достигло значения выключеного - запускаем таймер на отсрочку включения батареи обратно
-     */
-    adcHandle.batOffOk = SET;
-//      // АЦП не нужен - останавливаем
-    ledWink( LED_TOGGLE_TOUT );
-    batClrHandler = batOnToutTout;
-    timerMod(&batClrTimer, BAT_ON_TOUT_TOUT);
-  }
-  else {
-    adcHandle.vbatOk = RESET;
-  }
-}
 
 void adcProcess( uintptr_t arg ){
   (void)arg;
 
   if( (adcHandle.adcOn == RESET) || (adcHandle.adcOk == RESET) ){
     // АЦП выключено или данные АЦП не готовы
-//    for( eAdcParam i = ADC_PARAM_1; i < ADC_PARAM_NUM; i++ ){
-//      adcHandle.adcData[i].paramAdcNok = RESET;
-//    }
     return;
   }
 
   adcHandle.adcOk = RESET;
 
-  adcHandle.vdd = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVref*1000)/1210));
+  for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
+    sAdcData * pData = &(adcHandle.adcData[i]);
 
-  for( eAdcParam i = 0; i < ADC_PARAM_NUM; i++ ){
-
-    // Вычисляем напряжение
-    adcHandle.adcData[i].now.param = (float)((adcHandle.vdd * adcHandle.adcVparam[i]) / adcKparam[i]) / 1000.0;
-
-    if( adcHandle.batOff && (i == ADC_PARAM_VBAT) ){
-      // Процесс сброса CMOS
-      batOffProcess( ADC_PARAM_VBAT );
+    switch ( i ){
+      case ADC_PRM_VDD:
+        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD]*1000)/VREFINT_VOL));
+        break;
+      case ADC_PRM_PRESS:     // Давление Pa = mV
+        // Вычисляем напряжение
+        pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]) - PRESS_NUL;
+        pressProc( pData->prm );
+        break;
+      case ADC_PRM_TERM: {
+        // Вычисляем напряжение
+        uint16_t rt = ((R1 * ADC_KPARAM_0) / adcHandle.adcVprm[i]) - R1;
+        // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
+        adcHandle.adcData[i].prm = (int32_t)(1000.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 273000;
+        termProc( adcHandle.adcData[i].prm );
+        break;
+      }
+      case ADC_PRM_ALCO:      // Просто напряжение
+        // Вычисляем напряжение
+        adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+        break;
+      default:
+        break;
     }
-    else {
-      // НЕ процесс сброса батареи
-      tmParamProcF( &adcHandle.adcData[i], RESET, RESET );
-      adcHandle.paramStatus[i].paramNok = RESET;
-      adcHandle.paramStatus[i].paramPeakNok = RESET;
 
-      if( (adcHandle.adcData[i].now.param > adcHandle.adcData[i].now.limitOnHi)
-          && (adcHandle.adcData[i].status.onHiAlrm == RESET) ){
-        uint16_t data;
-
-        adcHandle.adcData[i].status.onHiAlrm = SET;
-
-        // Логируем ошибку ADC
-        data =  pmbus_data_regular_to_linear_11( adcHandle.adcData[i].now.param );
-        logger( DEVID_ADC, i, LOG_ERR_PRM_ON_HI, PRM_VIN, data );
-
-      }
-      else if( (adcHandle.adcData[i].now.param < adcHandle.adcData[i].now.limitOnLow)
-               && (adcHandle.adcData[i].status.onLowAlrm == RESET) ){
-        uint16_t data;
-
-        adcHandle.adcData[i].status.onLowAlrm = SET;
-
-        // Логируем ошибку ADC
-        data =  pmbus_data_regular_to_linear_11( adcHandle.adcData[i].now.param );
-        logger( DEVID_ADC, i, LOG_ERR_PRM_ON_LOW, PRM_VIN, data );
-      }
+    if( measDev.status.measStart ){
+      pData->prmPeakMin = min( pData->prmPeakMin, pData->prm );
+      pData->prmPeakMax = max( pData->prmPeakMax, pData->prm );
     }
   }
 
+  totalProc();
 }
 
 ///**
@@ -574,16 +360,12 @@ void adcMainEnable( void ){
 void adcMainInit( void ){
   adcGpioInit();
   adcInit();
+  adcDmaInit();
   adcTrigTimInit();
 
-  adcHandle.adcData[ADC_PARAM_VBAT].now.limitOnLow = 2.7;
-  adcHandle.adcData[ADC_PARAM_VBAT].now.limitOnHi = 3.2;
-  for( eAdcParam i = 0; i < ADC_PARAM_NUM; i++ ){
-    tmPrmInit( &(adcHandle.adcData[i]), RESET, SET );
+  for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
+    adcPrmInit( &(adcHandle.adcData[i]) );
   }
-
-  timerSetup(&batClrTimer, batClrTout, (uintptr_t)&batClrHandler);
-  timerSetup( &adcPeakTimer, adcPeakTout, (uintptr_t)ADC_PARAM_VBAT);
 
 }
 

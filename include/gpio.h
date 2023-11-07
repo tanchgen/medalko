@@ -35,12 +35,12 @@ typedef enum {
   GPIO_PULLUP = 1
 } eGpioPuPd;
 
-typedef enum
-{
-  EXTI_Trigger_Rising = 0x01,
-  EXTI_Trigger_Falling = 0x02,
-  EXTI_Trigger_Rising_Falling = 0x3
-}eExtiTrigger;
+//typedef enum
+//{
+//  EXTI_Trigger_Rising = 0x01,
+//  EXTI_Trigger_Falling = 0x02,
+//  EXTI_Trigger_Rising_Falling = 0x3
+//}eExtiTrigger;
 
 /** Структура дескриптора вывода GPIO. */
 typedef struct {
@@ -54,22 +54,18 @@ typedef struct {
   FlagStatus change;              // Флаг изменения состояниявывода
 } sGpioPin;
 
-/** Структура дескриптора входа EXTI. */
-typedef struct {
-  GPIO_TypeDef  *gpio;      /** Дескриптор GPIO. */
-  uint8_t gpioNum;
-  uint16_t  pin;            /** Номер вывода GPIO. */
-  uint8_t pinNum;
-  eGpioPuPd pupd;
-  eExtiTrigger trigger;       /** Признак срабатывания прерывания по фронту */
-  BitAction  state, newstate;     /** Текущее и запрашиваемое состояние вывода GPIO. */
-  FlagStatus change;              // Флаг изменения состояниявывода
-
-  /** Текущее и запрашиваемое состояние вывода GPIO. */
-  BitAction  state, newstate;
-  FlagStatus change;
-
-} sExtiPin;
+///** Структура дескриптора входа EXTI. */
+//typedef struct {
+//  GPIO_TypeDef  *gpio;      /** Дескриптор GPIO. */
+//  uint8_t gpioNum;
+//  uint16_t  pin;            /** Номер вывода GPIO. */
+//  uint8_t pinNum;
+//  eGpioPuPd pupd;
+//  eExtiTrigger trigger;       /** Признак срабатывания прерывания по фронту */
+//  BitAction  state, newstate;     /** Текущее и запрашиваемое состояние вывода GPIO. */
+//  FlagStatus change;              // Флаг изменения состояниявывода
+//
+//} sExtiPin;
 
 ///**
 //  * @brief  Установка режима работы вывода GPIO.
@@ -82,25 +78,6 @@ typedef struct {
 //  * @retval none
 //  */
 //void setModeGpioPin(sGpioPin *pin, GPIOMode_TypeDef mode, GPIOOType_TypeDef otype, GPIOPuPd_TypeDef pupd);
-
-/**
-  * @brief  Безотлогательная установка вывода GPIO.
-  *
-  * @param[in]  *pin указатель на дескриптор вывода GPIO
-  *
-  * @retval none
-  */
-void gpioPinSetNow( sGpioPin *pin );
-
-
-/**
-  * @brief  Безотлогательный сброс вывода GPIO.
-  *
-  * @param[in]  *pin указатель на дескриптор вывода GPIO
-  *
-  * @retval none
-  */
-void gpioPinResetNow( sGpioPin * pin );
 
 void gpioPinSet( sGpioPin * pin );
 void gpioPinReset( sGpioPin * pin );
@@ -136,14 +113,14 @@ void gpioPinResetNowTout( uintptr_t arg );
   */
 void gpioPinSetup(sGpioPin *pin);
 
-/**
-  * @brief  Инициализация входа EXTI.
-  *
-  * @param[in]  pin дескриптор вывода GPIO
-  *
-  * @retval none
-  */
-void extiPinSetup(sExtiPin *pin);
+///**
+//  * @brief  Инициализация входа EXTI.
+//  *
+//  * @param[in]  pin дескриптор вывода GPIO
+//  *
+//  * @retval none
+//  */
+//void extiPinSetup(sExtiPin *pin);
 
 bool changePinState(sGpioPin *pin );
 
@@ -166,15 +143,15 @@ void changePinStateTout( uintptr_t arg );
   */
 //bool changePinState( sGpioPin *pin );
 
-/**
-  * @brief  Проверка и изменение состояния входа EXTI.
-  *
-  * @param[in]  pin   дескриптор входа EXTI
-  *
-  * @retval true    состояние изменилось
-  * @retval false   состояние не изменилось
-  */
-bool changeExtiPinState( sExtiPin *pin );
+///**
+//  * @brief  Проверка и изменение состояния входа EXTI.
+//  *
+//  * @param[in]  pin   дескриптор входа EXTI
+//  *
+//  * @retval true    состояние изменилось
+//  * @retval false   состояние не изменилось
+//  */
+//bool changeExtiPinState( sExtiPin *pin );
 
 /**
   * @brief  Инициализация подсистемы GPIO.
@@ -248,26 +225,44 @@ static inline BitAction  gpioPinReadNow( sGpioPin * pin ){
   return bit;
 }
 
-static inline BitAction  extiPinRead( sExtiPin * pin ){
-  BitAction bit = (pin->gpio->IDR & pin->pin)? Bit_SET : Bit_RESET;
-  if( bit != pin->newstate ){
-    pin->newstate = bit;
-    pin->change = SET;
-  }
-  return bit;
-}
+/**
+  * @brief  Безотлогательная установка вывода GPIO.
+  *
+  * @param[in]  *pin указатель на дескриптор вывода GPIO
+  *
+  * @retval none
+  */
+void gpioPinSetNow( sGpioPin *pin );
 
-static inline BitAction  extiPinReadNow( sExtiPin * pin ){
-  BitAction bit = (pin->gpio->IDR & pin->pin)? Bit_SET : Bit_RESET;
-  if( bit != pin->newstate ){
-    pin->state = pin->newstate = bit;
-    pin->change = SET;
-  }
-  else {
-    pin->state = bit;
-  }
-  return bit;
-}
+/**
+  * @brief  Безотлогательный сброс вывода GPIO.
+  *
+  * @param[in]  *pin указатель на дескриптор вывода GPIO
+  *
+  * @retval none
+  */
+void gpioPinResetNow( sGpioPin * pin );
+
+//static inline BitAction  extiPinRead( sExtiPin * pin ){
+//  BitAction bit = (pin->gpio->IDR & pin->pin)? Bit_SET : Bit_RESET;
+//  if( bit != pin->newstate ){
+//    pin->newstate = bit;
+//    pin->change = SET;
+//  }
+//  return bit;
+//}
+//
+//static inline BitAction  extiPinReadNow( sExtiPin * pin ){
+//  BitAction bit = (pin->gpio->IDR & pin->pin)? Bit_SET : Bit_RESET;
+//  if( bit != pin->newstate ){
+//    pin->state = pin->newstate = bit;
+//    pin->change = SET;
+//  }
+//  else {
+//    pin->state = bit;
+//  }
+//  return bit;
+//}
 
 #endif /* _GPIO_H */
 

@@ -7,9 +7,6 @@
 
 #include "list.h"
 
-/** Частота работы системного таймера. */
-#define TICK_HZ   (1000)
-
 #define IS_TIM_PCLK1_PERIPH(PERIPH) (((PERIPH) == TIM2) || \
                                       ((PERIPH) == TIM3) || \
                                       ((PERIPH) == TIM4) || \
@@ -77,6 +74,9 @@ extern volatile uint8_t uxSecTout;
 
 
 extern volatile uint32_t mTick;
+extern volatile uint32_t secs;
+extern volatile uint16_t msecs;
+
 extern RCC_ClocksTypeDef  rccClocks;
 
 // *********** Инициализация структуры ВРЕМЯ (сейчас - системное ) ************

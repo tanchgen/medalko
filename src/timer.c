@@ -7,7 +7,9 @@
 #define _MSEC_PER_SEC	(1000)
 
 volatile uint32_t  mTick = 0;
-extern volatile uint32_t baseSendPeriod;
+volatile uint32_t  secs = 0;
+volatile uint16_t  msecs = 0;
+FlagStatus secsFlag = RESET;
 
 /** Голова очереди таймеров на исполнение. */
 static struct list_head  _timers_queue = LIST_HEAD_INIT(_timers_queue);
@@ -209,9 +211,9 @@ uint8_t timPscSet( TIM_TypeDef * tim, uint32_t tim_frequency, uint16_t * psc){
   */
 void SysTick_Handler(void) {
 	++mTick;
-  if( (mTick % baseSendPeriod) == 0 ){
-    sendTick++;
-    sendTickFlag = SET;
+  if( (msecs = mTick % _MSEC_PER_SEC) == 0 ){
+    secs++;
+    secsFlag = SET;
   }
 }
 
@@ -302,12 +304,6 @@ void _init_timers(const struct iface *self)
   (void)self;
 
 	/* Настраиваем системный таймер на заданную частоту. */
-	SysTick_Config(rccClocks.SYSCLK_Frequency / CONFIG_HZ);
+	SysTick_Config(rccClocks.SYSCLK_Frequency / TICK_HZ);
 }
-
-/** Структура дескриптора интерфейса подсистемы таймеров. */
-const struct iface  _timers_iface __attribute__((section("iface_sec")))  = {
-	.init  = _init_timers,
-	.clock = _clock_timers,
-};
 

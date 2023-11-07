@@ -4,7 +4,7 @@
 
 #include "main.h"
 #include "statefunc.h"
-
+#include "measur.h"
 #include "gpio_arch.h"
 
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
@@ -18,22 +18,17 @@ uint8_t relOnCount;
 // Определено в led.c
 
 // ===========================================================================================================
-/** Структура дескриптора таймера таймаута изменения состояния системы при включении */
-struct timer_list  pwrOnToutTimer;
-/** Структура дескриптора таймера таймаута изменения состояния системы при выключении */
-struct timer_list  pwrOffToutTimer;
-/** Структура дескриптора таймера изменения состояния системы при включении*/
-struct timer_list  pwrOnUpdateTimer;
-/** Структура дескриптора таймера изменения состояния системы при выключении */
-struct timer_list  pwrOffUpdateTimer;
+///** Структура дескриптора таймера таймаута изменения состояния системы при включении */
+//struct timer_list  pwrOnToutTimer;
+///** Структура дескриптора таймера таймаута изменения состояния системы при выключении */
+//struct timer_list  pwrOffToutTimer;
+///** Структура дескриптора таймера изменения состояния системы при включении*/
+//struct timer_list  pwrOnUpdateTimer;
+///** Структура дескриптора таймера изменения состояния системы при выключении */
+//struct timer_list  pwrOffUpdateTimer;
 
 /** Структура дескриптора таймера таймаута восстановления после ошибки */
-struct timer_list  pwrOnCanTimer;
-/** Структура дескриптора таймера таймаута восстановления после ошибки FPGA*/
-struct timer_list  fpgaOnCanTimer;
-
-/** Структура дескриптора таймера таймаута ожидания отклика на FPGA_RST*/
-struct timer_list  mzuRstTestTimer;
+struct timer_list  measOnCanTimer;
 
 // =================== Прототипы функций ====================================
 // ==========================================================================
@@ -46,216 +41,40 @@ struct timer_list  mzuRstTestTimer;
   *
   * @retval none
   */
-static void measurOnCan(uintptr_t arg){
-  (void)arg;
-  // Система выключена полностью и готова к повторному включению
-  // Восстанавливаем моргание зеленого светодиода
-  ledSysSndby();
-  onCan = SET;
-}
+//static void measurOnCan(uintptr_t arg){
+//  (void)arg;
+//  // Система выключена полностью и готова к повторному включению
+//  onCan = SET;
+//}
+
+
+
+
+
 
 
 ///**
-//  * @brief  Обработчик таймаута ожидания условия при вкл/выкл питания
+//  * @brief  Обработчик тайм-аута антидребезга выводов GPIO.
 //  *
-//  * @param[in]  arg  NULL
+//  * @param[in]  arg данные таймера (дескриптор таймера)
 //  *
 //  * @retval none
 //  */
-//static void pwrTimeout(uintptr_t arg){
-//  (void)arg;
-//  // Включаем на постоянно светодиод LED_PWR_FAULE
-//  trace_puts("PWR_TOUT");
-//  ledOn( LED_R, 0 );
-//  ledToggleSet( LED_ERR, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0 );
+//static void debounceTimeout(uintptr_t arg){
+//  sGpioPin *pin = (sGpioPin*)arg;
+//  bool st;
+//
+//  // Нынешнее состояния пина
+//  st = ((((pin->gpio)->IDR & (pin->pin))) == pin->pin);
+//
+//  if( pin->newstate != st ){
+//    // Состояние сохранилось - НЕ ложное срабатывание
+//    pin->newstate = pin->state = st;
+//    pin->change = SET;
+//  }
+//
 //}
 //
-
-/**
-  * @brief  Обработчик тайм-аута включения системы
-  *
-  * @param[in]  arg  NULL
-  *
-  * @retval none
-  */
-static void pwrOnTout(uintptr_t arg){
-
-//  // Не возникло событие успешного завершения очередного этапа включения системы
-//  trace_printf("PWR ON tout State: %d\n", arg);
-//
-//  switch( arg ){
-//    case MCUSTATE_SYS_START:
-//#if DEBUG_ALARM
-//        trace_puts("  - no PG_PSU ." );
-//#endif
-//        ledToggleSet( LED_R, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0 );
-//      break;
-//    case MCUSTATE_PSU_ON:
-//#if DEBUG_ALARM
-//        trace_puts("  - Not all I2C_Devices is ready." );
-//#endif
-//        ledToggleSet( LED_R, LED_TOGGLE_TOUT, LED_TOGGLE_TOUT, 0 );
-//      break;
-//    case MCUSTATE_FAN_ON:
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_RUN_1" );
-//#endif
-//      sysAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_EN_1, 1 );
-//      return;
-//      break;
-//    case MCUSTATE_RUN_1:
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_RUN_2" );
-//#endif
-//      sysAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_EN_2, 1 );
-//      return;
-//      break;
-//    case MCUSTATE_RUN_2:
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_RUN_3" );
-//#endif
-//      sysAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_EN_3, 1 );
-//      return;
-//      break;
-//    case MCUSTATE_PLL_LOCK:
-//#if DEBUG_ALARM
-//      trace_puts("  - MZU_DONE timeout" );
-//#endif
-//// Переходим с ошибкой дальше
-//      ledOn( LED_BM_ERR, 0 );
-//      mcuRunWait = MSTATE_NON;
-//      mcuState = MCUSTATE_MZU_DONE;
-//      return;
-//      break;
-//    case MCUSTATE_ISTART:
-//#if DEBUG_ALARM
-//        trace_puts("  - Intel not wake" );
-//#endif
-//        // INTEL не включился - выключаемся
-//        intel.iErr = I_ERR_SLP;
-//        sysFailOffQuery = SET;
-//        logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_EN_CPU, 1 );
-//        return;
-//      break;
-////    case MCUSTATE_FAN_ON:
-////#if DEBUG_ALARM
-////        trace_puts("  - PLL_LOCK timeout" );
-////#endif
-////        ledOn( LED_R, 0 );
-////        errHandler(ERR_SYS_ON_TOUT);
-////// Переходим с ошибкой дальше
-////        mcuRunWait = MSTATE_NON;
-////        mcuState++;
-////        return;
-////      break;
-//    case MCUSTATE_FPGA_START: {
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_FPGA_RUN_1" );
-//#endif
-//      fpgaAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_FPGA_EN_1, 1 );
-//      return;
-//    }
-//    case MCUSTATE_FPGA_1:
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_FPGA_RUN_2" );
-//#endif
-//      fpgaAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_FPGA_EN_2, 1 );
-//      return;
-//    case MCUSTATE_FPGA_2:
-//#if DEBUG_ALARM
-//      trace_puts("  - no PG_FPGA_RUN_3" );
-//#endif
-//      fpgaAlrtOffQuery = SET;
-//      logger( DEVID_OTHER, 0, LOG_ERR_FLAG, PRM_GPIO_PWR_FPGA_EN_3, 1 );
-//      return;
-//    case MCUSTATE_FPGA_3:
-//#if DEBUG_ALARM
-//        trace_puts("  - FPGA_DONE timeout" );
-//#endif
-//        errHandler(ERR_SYS_ON_TOUT);
-//// Переходим с ошибкой дальше
-//        mcuRunWait = MSTATE_NON;
-//        mcuState++;
-//        return;
-//      break;
-//    default:
-//      break;
-//  }
-//  sysFailOffQuery = SET;
-}
-
-
-/**
-  * @brief  Обработчик тайм-аута выключения системы
-  *
-  * @param[in]  arg  NULL
-  *
-  * @retval none
-  */
-static void pwrOffTout(uintptr_t arg){
-}
-
-/**
-  * @brief  Обработчик тайм-аута включения системы
-  *
-  * @param[in]  arg  NULL
-  *
-  * @retval none
-  */
-static void measurOnUpdate(uintptr_t arg){
-  (void)arg;
-  // Пауза закончилась - переходим в предыдущее состояние системы
-  measurState++;
-  measurRunWait = MSTATE_NON;
-}
-
-/**
-  * @brief  Обработчик тайм-аута выключения системы
-  *
-  * @param[in]  arg  NULL
-  *
-  * @retval none
-  */
-static void measurOffUpdate(uintptr_t arg){
-  (void)arg;
-  // Пауза закончилась - переходим в предыдущее состояние системы
-  measurRunWait = MSTATE_NON;
-  if( measurState > MCUSTATE_SYS_OFF ){
-    measurState--;
-  }
-  else {
-    measurOnCan( (uintptr_t)NULL );
-  }
-}
-
-
-/**
-  * @brief  Обработчик тайм-аута антидребезга выводов GPIO.
-  *
-  * @param[in]  arg данные таймера (дескриптор таймера)
-  *
-  * @retval none
-  */
-static void debounceTimeout(uintptr_t arg){
-  sGpioPin *pin = (sGpioPin*)arg;
-  bool st;
-
-  // Нынешнее состояния пина
-  st = ((((pin->gpio)->IDR & (pin->pin))) == pin->pin);
-
-  if( pin->newstate != st ){
-    // Состояние сохранилось - НЕ ложное срабатывание
-    pin->newstate = pin->state = st;
-    pin->change = SET;
-  }
-
-}
-
 
 /*
 void KEY_TIM_IRQH( void ) {
@@ -325,6 +144,7 @@ void REL_PULSE_TIM_IRQH( void ) {
   REL_PULSE_TIM->SR = 0;
   // Снимаем сброс по питанию MZU_RST
   gpioPinResetNow( &gpioPinRelOn );
+  measDev.status.relEnd = SET;
 }
 
 
@@ -459,10 +279,6 @@ void keyTimInit( TIM_TypeDef * keytim ){
 
 /* ZOOMER_TIM init function */
 void zoomTimInit( void ){
-  uint32_t tmp;
-  uint32_t tmp2;
-  volatile uint32_t * afr;
-
   ZOOM_TIM_CLK_EN;
   gpioPinSetup( &gpioPinZoom );
 
@@ -510,7 +326,7 @@ void gpioPulse( sGpioPin * pin ){
     gpioPinSetNow( pin );
     REL_PULSE_TIM->EGR = TIM_EGR_UG;
     REL_PULSE_TIM->CR1 |= TIM_CR1_CEN;
-    relOnSet = RESET;
+    measDev.status.relStart = RESET;
     relOnCount++;
   }
 }
@@ -528,144 +344,15 @@ void gpioClock( void ){
 #if DEBUG_TRACE
   trace_puts("Function: Clock FPGA");
 #endif
-
-  //  Обработаем кнопки.
-  if( gpioPinClrKey.change  \
-      && (gpioPinClrKey.state == Bit_SET) \
-      && (adcHandle.batOff == RESET) ){
-    // Нажата кнопка CMOS-Clear - выставим флаг выключения батареи
-    gpioPinClrKey.change = RESET;
-    *(adcHandle.clrBatFlag) = SET;
-    if( (ledHandle[LED_R].ledOnTout == 0) & (ledHandle[LED_R].ledPin.state == 0)){
-      ledOn( LED_R, LED_BLINK_ON_TOUT );
-    }
+  if( measDev.status.relStart ){
+    measDev.tout = mTick + 200;
+    gpioPulse( &gpioPinRelOn );
+  }
+  else if( measDev.status.relEnd ){
+    measDev.tout = mTick + 200;
+    gpioPulse( &gpioPinRelOn );
   }
 
-  // UP_PWRKey
-  if (gpioPinPwrKey.change) {
-    // Система не включена (или не включена полностью) - меняем направление запуска
-    gpioPinPwrKey.change = RESET;
-    if( mcuState >= MCUSTATE_SYS_ON ){
-      // Система включена - транслируем кнопку на CPU (INTEL) с инверсией
-      transBtn( &gpioPinPwrOut, !gpioPinPwrKey.state );
-    }
-    else if (gpioPinPwrKey.state == Bit_RESET){
-      if( mcuRun ){
-        sysOffQuery = SET;
-      }
-      else if( onCan ){
-        mcuOnNeed = SET;
-      }
-    }
-  }
-
-  // FPGA_PWRKey
-  if (gpioPinFpgaPwrKey.change) {
-    // VP1, VP2 не включены (или не включена полностью) - меняем направление запуска
-    gpioPinFpgaPwrKey.change = RESET;
-    if( (gpioPinFpgaPwrKey.state == Bit_RESET) && (mcuState >= MCUSTATE_SYS_ON) ){
-      if( fpgaRun ){
-        fpgaOffQuery = SET;
-      }
-      else if( fpgaOnCan ){
-        fpgaOnNeed = SET;
-      }
-    }
-  }
-
-
-  // I_PwrBtnOut pulse
-  if( sysFlags.iPwrOutSet ){
-    gpioPulse( &gpioPinPwrOut );
-  }
-
-  if( extiPinMzuRsrv1.change ){
-    // Пришел отклик на сигнал FPGA_RST
-    sysFlags.mzuRsrv1Evnt = SET;
-    timerDel( &mzuRstTestTimer );
-  }
-
-/*
-  // --------- MultyBoot --------------
-  if( (mcuRun != RESET) && (mcuState >= MCUSTATE_RUN_3) ){
-    // MZU включен
-    gpioPinReadNow( &gpioPinMzumbFin );
-    if( gpioPinMzumbFin.change && (gpioPinMzumbFin.state == Bit_SET) ){
-      // Multiboot закончен - проверяем
-      if( gpioPinReadNow( &gpioPinMzuMbId ) != gpioPinMzuMb.state ){
-        sysFlags.mbErr = SET;
-      }
-    }
-  }
-  // ----------------------------------
-*/
-
-  // INTEL запущен
-  if( (mcuRun != RESET) && (mcuState >= MCUSTATE_SYS_ON) ){
-    // RST_Key
-    if (gpioPinRstKey.change) {
-      gpioPinRstKey.change = RESET;
-      if( gpioPinRstKey.state == Bit_RESET ){
-        sysFlags.intelRstSet = SET;
-      }
-    }
-    if(  sysFlags.intelRstSet == SET ){
-      // PS_SRST сработало от кнопки KEY_SRST или от UART
-      gpioPulse( &gpioPinIRst );
-    }
-
-    // FPGA_RST_Key
-    if (gpioPinFpgaRstKey.change) {
-      gpioPinFpgaRstKey.change = RESET;
-      if( gpioPinFpgaRstKey.state == Bit_RESET ){
-        sysFlags.mzuRstSet = SET;
-      }
-    }
-    if(  sysFlags.mzuRstSet == SET ){
-      // MZU_RST сработало от кнопки FPGA_RST или от UART
-      gpioPulse( &gpioPinMzuRst );
-      timerMod( &mzuRstTestTimer, 3 );
-    }
-    // MZU_PROG pulse
-    if(  sysFlags.mzuProgSet == SET ){
-      // MZU_PROG от UART
-      gpioPulse( &gpioPinMzuProg );
-    }
-    // FPGA_PROG pulse
-    if(  sysFlags.fpgaProgSet == SET ){
-      // FPGA_PROG сработало от UART
-      gpioPulse( &gpioPinFpgaProg );
-    }
-
-    // Отслеживаем состояние INTEL - SlpS3
-    gpioPinReadNow( &gpioPinSlpS[SLP_S3] );
-    if( gpioPinSlpS[SLP_S3].change && (gpioPinSlpS[SLP_S3].state == Bit_RESET) ){
-      // INTEL начал засыпать или выключаться - выключаем систему
-      gpioPinSlpS[SLP_S3].change = RESET;
-      extiPgCoreOff();
-      sysOffQuery = SET;
-    }
-    else {
-      // ================== INTEL_CATERROR =========================
-      gpioPinReadNow( &gpioPinCaterr );
-      if( gpioPinCaterr.change && (gpioPinCaterr.state == Bit_RESET) ){
-        // INTEL CATERR;
-        gpioPinCaterr.change = RESET;
-        sysFlags.caterr = SET;
-        intel.caterrBatFlag = SET;
-
-        logger( DEVID_CPU, 0, LOG_ERR_FLAG, PRM_GPIO_CATERR, intel.caterrBatFlag );
-
-#if LOGGER_ENABLE
-        logCaterrSave( &logDev, sysFlags.caterr );
-#endif // LOGGER_ENABLE
-
-        ledOn( LED_BM_ERR, 0 );
-      }
-      // ===========================================================
-    }
-
-  }
 }
 
 /**
@@ -682,8 +369,7 @@ void gpioEnable( void ) {
 
   // Включаем прерывания для кнопки PS_SRST
 //  EXTI->IMR |= extiPinRstKey.pin;
-  timerMod( &pwrOnCanTimer, TOUT_1500 );
-  keyEnable();
+  timerMod( &measOnCanTimer, TOUT_1500 );
 }
 
 /**
@@ -705,8 +391,8 @@ void gpioInit( void ){
   zoomTimInit();
 
   // ----------- TIMERS ---------------------------
-  timerSetup( &pwrOnToutTimer, pwrOnTout, (uintptr_t)NULL);
-  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
+//  timerSetup( &pwrOnToutTimer, pwrOnTout, (uintptr_t)NULL);
+//  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
 }
 
 

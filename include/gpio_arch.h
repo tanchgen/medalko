@@ -246,8 +246,6 @@ extern FlagStatus measurRun;
 /** Состояние уровня запуска системы */
 extern eMcuState measurState;
 
-extern FlagStatus onCan;
-
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
 

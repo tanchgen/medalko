@@ -43,8 +43,8 @@ void rccInit(void){
 
     /* Configure Flash prefetch, Instruction cache, Data cache and wait states. */
     FLASH_PrefetchBufferCmd(ENABLE);
-    FLASH_InstructionCacheCmd(ENABLE);
-    FLASH_DataCacheCmd(ENABLE);
+//    FLASH_InstructionCacheCmd(ENABLE);
+//    FLASH_DataCacheCmd(ENABLE);
     FLASH_SetLatency(FLASH_Latency_2);
 
     /* Select the main PLL as system clock source. */
@@ -54,6 +54,8 @@ void rccInit(void){
     while (RCC_GetSYSCLKSource() != RCC_CFGR_SWS_PLL)
     {}
   }
+  // Select ADC clock = APB2 / 6
+  RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_ADCPRE) | RCC_CFGR_ADCPRE_1;
 
   RCC_GetClocksFreq(&rccClocks);
 

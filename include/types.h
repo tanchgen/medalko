@@ -42,6 +42,11 @@ typedef enum {
   MCUSTATE_FPGA_ON,     // 18
 } eMcuState;
 
+typedef enum {
+  INT,
+  FLOAT
+} ePtype;
+
 
 
 #endif /* TYPES_H_ */

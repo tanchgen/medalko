@@ -5,6 +5,7 @@
 
 #include "stm32_it.h"
 
+#include "bitbanding.h"
 #include "types.h"
 #include "tinyalloc.h"
 #include "gpio.h"

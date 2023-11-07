@@ -11,10 +11,13 @@
 #include <string.h>
 #include "stm32f10x.h"
 #include "main.h"
+#include "statefunc.h"
 
-#define TALLOC_ARRAY_SIZE   8192
+#define TALLOC_ARRAY_SIZE   4096
 
 uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+
+static inline void stateProcess( void );
 
 // ----- main() ---------------------------------------------------------------
 #if SWO_ENABLE
