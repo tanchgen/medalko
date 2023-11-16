@@ -563,6 +563,15 @@ typedef struct
   __IO uint32_t DR;
 } ADC_TypeDef;
 
+typedef struct
+{
+  __IO uint32_t SR;               /*!< ADC status register,    used for ADC multimode (bits common to several ADC instances). Address offset: ADC1 base address         */
+  __IO uint32_t CR1;              /*!< ADC control register 1, used for ADC multimode (bits common to several ADC instances). Address offset: ADC1 base address + 0x04  */
+  __IO uint32_t CR2;              /*!< ADC control register 2, used for ADC multimode (bits common to several ADC instances). Address offset: ADC1 base address + 0x08  */
+  uint32_t  RESERVED[16];
+  __IO uint32_t DR;               /*!< ADC data register,      used for ADC multimode (bits common to several ADC instances). Address offset: ADC1 base address + 0x4C  */
+} ADC_Common_TypeDef;
+
 /** 
   * @brief Backup Registers  
   */
@@ -1354,6 +1363,8 @@ typedef struct
 
 #define FLASH_R_BASE          (AHBPERIPH_BASE + 0x2000) /*!< Flash registers base address */
 #define OB_BASE               ((uint32_t)0x1FFFF800)    /*!< Flash Option Bytes base address */
+#define FLASHSIZE_BASE        0x1FFFF7E0UL    /*!< FLASH Size register base address */
+#define UID_BASE              0x1FFFF7E8UL    /*!< Unique device ID register base address */
 
 #define ETH_BASE              (AHBPERIPH_BASE + 0x8000)
 #define ETH_MAC_BASE          (ETH_BASE)
@@ -1368,6 +1379,7 @@ typedef struct
 #define FSMC_Bank4_R_BASE     (FSMC_R_BASE + 0x00A0) /*!< FSMC Bank4 registers base address */
 
 #define DBGMCU_BASE          ((uint32_t)0xE0042000) /*!< Debug MCU registers base address */
+
 
 /**
   * @}
@@ -3459,6 +3471,30 @@ typedef struct
 #define  DMA_IFCR_CHTIF7                     ((uint32_t)0x04000000)        /*!< Channel 7 Half Transfer clear */
 #define  DMA_IFCR_CTEIF7                     ((uint32_t)0x08000000)        /*!< Channel 7 Transfer Error clear */
 
+/******************************************************************************/
+#define  DMA_CCR_EN                         ((uint16_t)0x0001)            /*!< Channel enable*/
+#define  DMA_CCR_TCIE                       ((uint16_t)0x0002)            /*!< Transfer complete interrupt enable */
+#define  DMA_CCR_HTIE                       ((uint16_t)0x0004)            /*!< Half Transfer interrupt enable */
+#define  DMA_CCR_TEIE                       ((uint16_t)0x0008)            /*!< Transfer error interrupt enable */
+#define  DMA_CCR_DIR                        ((uint16_t)0x0010)            /*!< Data transfer direction */
+#define  DMA_CCR_CIRC                       ((uint16_t)0x0020)            /*!< Circular mode */
+#define  DMA_CCR_PINC                       ((uint16_t)0x0040)            /*!< Peripheral increment mode */
+#define  DMA_CCR_MINC                       ((uint16_t)0x0080)            /*!< Memory increment mode */
+
+#define  DMA_CCR_PSIZE                      ((uint16_t)0x0300)            /*!< PSIZE[1:0] bits (Peripheral size) */
+#define  DMA_CCR_PSIZE_0                    ((uint16_t)0x0100)            /*!< Bit 0 */
+#define  DMA_CCR_PSIZE_1                    ((uint16_t)0x0200)            /*!< Bit 1 */
+
+#define  DMA_CCR_MSIZE                      ((uint16_t)0x0C00)            /*!< MSIZE[1:0] bits (Memory size) */
+#define  DMA_CCR_MSIZE_0                    ((uint16_t)0x0400)            /*!< Bit 0 */
+#define  DMA_CCR_MSIZE_1                    ((uint16_t)0x0800)            /*!< Bit 1 */
+
+#define  DMA_CCR_PL                         ((uint16_t)0x3000)            /*!< PL[1:0] bits(Channel Priority level) */
+#define  DMA_CCR_PL_0                       ((uint16_t)0x1000)            /*!< Bit 0 */
+#define  DMA_CCR_PL_1                       ((uint16_t)0x2000)            /*!< Bit 1 */
+
+#define  DMA_CCR_MEM2MEM                    ((uint16_t)0x4000)            /*!< Memory to memory mode */
+
 /*******************  Bit definition for DMA_CCR1 register  *******************/
 #define  DMA_CCR1_EN                         ((uint16_t)0x0001)            /*!< Channel enable*/
 #define  DMA_CCR1_TCIE                       ((uint16_t)0x0002)            /*!< Transfer complete interrupt enable */
@@ -3628,6 +3664,7 @@ typedef struct
 #define  DMA_CCR7_MEM2MEM                    ((uint16_t)0x4000)            /*!< Memory to memory mode enable */
 
 /******************  Bit definition for DMA_CNDTR1 register  ******************/
+#define  DMA_CNDTR_NDT                      ((uint16_t)0xFFFF)            /*!< Number of data to Transfer */
 #define  DMA_CNDTR1_NDT                      ((uint16_t)0xFFFF)            /*!< Number of data to Transfer */
 
 /******************  Bit definition for DMA_CNDTR2 register  ******************/
@@ -4023,9 +4060,14 @@ typedef struct
 #define  ADC_JSQR_JSQ4_3                     ((uint32_t)0x00040000)        /*!< Bit 3 */
 #define  ADC_JSQR_JSQ4_4                     ((uint32_t)0x00080000)        /*!< Bit 4 */
 
-#define  ADC_JSQR_JL                         ((uint32_t)0x00300000)        /*!< JL[1:0] bits (Injected Sequence length) */
-#define  ADC_JSQR_JL_0                       ((uint32_t)0x00100000)        /*!< Bit 0 */
-#define  ADC_JSQR_JL_1                       ((uint32_t)0x00200000)        /*!< Bit 1 */
+#define ADC_JSQR_JL_Pos                     (20U)
+#define ADC_JSQR_JL_Msk                     (0x3UL << ADC_JSQR_JL_Pos)          /*!< 0x00300000 */
+#define ADC_JSQR_JL                         ADC_JSQR_JL_Msk                    /*!< ADC group injected sequencer scan length */
+#define ADC_JSQR_JL_0                       (0x1UL << ADC_JSQR_JL_Pos)          /*!< 0x00100000 */
+#define ADC_JSQR_JL_1                       (0x2UL << ADC_JSQR_JL_Pos)          /*!< 0x00200000 */
+//#define  ADC_JSQR_JL                         ((uint32_t)0x00300000)        /*!< JL[1:0] bits (Injected Sequence length) */
+//#define  ADC_JSQR_JL_0                       ((uint32_t)0x00100000)        /*!< Bit 0 */
+//#define  ADC_JSQR_JL_1                       ((uint32_t)0x00200000)        /*!< Bit 1 */
 
 /*******************  Bit definition for ADC_JDR1 register  *******************/
 #define  ADC_JDR1_JDATA                      ((uint16_t)0xFFFF)            /*!< Injected data */
@@ -7729,7 +7771,9 @@ typedef struct
 /****************  Bit definition for DBGMCU_IDCODE register  *****************/
 #define  DBGMCU_IDCODE_DEV_ID                ((uint32_t)0x00000FFF)        /*!< Device Identifier */
 
-#define  DBGMCU_IDCODE_REV_ID                ((uint32_t)0xFFFF0000)        /*!< REV_ID[15:0] bits (Revision Identifier) */
+#define  DBGMCU_IDCODE_REV_ID_Pos            (16U)
+#define  DBGMCU_IDCODE_REV_ID_Msk            (0xFFFFUL << DBGMCU_IDCODE_REV_ID_Pos) /*!< 0xFFFF0000 */
+#define  DBGMCU_IDCODE_REV_ID                DBGMCU_IDCODE_REV_ID_Msk           /*!< REV_ID[15:0] bits (Revision Identifier) */
 #define  DBGMCU_IDCODE_REV_ID_0              ((uint32_t)0x00010000)        /*!< Bit 0 */
 #define  DBGMCU_IDCODE_REV_ID_1              ((uint32_t)0x00020000)        /*!< Bit 1 */
 #define  DBGMCU_IDCODE_REV_ID_2              ((uint32_t)0x00040000)        /*!< Bit 2 */
@@ -8327,6 +8371,8 @@ typedef struct
 #define READ_REG(REG)         ((REG))
 
 #define MODIFY_REG(REG, CLEARMASK, SETMASK)  WRITE_REG((REG), (((READ_REG(REG)) & (~(CLEARMASK))) | (SETMASK)))
+
+#define POSITION_VAL(VAL)     (__CLZ(__RBIT(VAL)))
 
 /**
   * @}

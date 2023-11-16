@@ -10,6 +10,7 @@
 #include "cmsis_device.h"
 #include "diag/Trace.h"
 
+#include "usb_vcp.h"
 // ----------------------------------------------------------------------------
 
 // One of these definitions must be passed via the compiler command line
@@ -68,6 +69,10 @@ ssize_t
 trace_write (const char* buf __attribute__((unused)),
 	     size_t nbyte __attribute__((unused)))
 {
+#ifdef TRACE_USB
+  Write_VCP((uint8_t*)buf, nbyte);
+  return 0;
+#else
 #if defined(OS_USE_TRACE_ITM)
   return _trace_write_itm (buf, nbyte);
 #elif defined(OS_USE_TRACE_SEMIHOSTING_STDOUT)
@@ -75,6 +80,7 @@ trace_write (const char* buf __attribute__((unused)),
 #elif defined(OS_USE_TRACE_SEMIHOSTING_DEBUG)
   return _trace_write_semihosting_debug(buf, nbyte);
 #endif
+#endif // TRACE_USB
 
   return -1;
 }

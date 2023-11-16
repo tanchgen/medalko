@@ -29,7 +29,7 @@ void rccInit(void){
 #ifdef STM32F4XX
     RCC_PLLConfig(RCC_PLLSource_HSE, HSE_VALUE/1000000, 250, 2, 5);
 #else
-    RCC_PLLConfig(RCC_PLLSource_HSE_Div1, 8);
+    RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
 #endif // STM32F4XX
 
     BIT_BAND_PER(RCC->CFGR, RCC_CFGR_USBPRE) = RESET;
@@ -42,7 +42,7 @@ void rccInit(void){
     {}
 
     /* Configure Flash prefetch, Instruction cache, Data cache and wait states. */
-    FLASH_PrefetchBufferCmd(ENABLE);
+    FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
 //    FLASH_InstructionCacheCmd(ENABLE);
 //    FLASH_DataCacheCmd(ENABLE);
     FLASH_SetLatency(FLASH_Latency_2);

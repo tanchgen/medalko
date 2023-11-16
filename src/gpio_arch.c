@@ -41,11 +41,11 @@ struct timer_list  measOnCanTimer;
   *
   * @retval none
   */
-//static void measurOnCan(uintptr_t arg){
-//  (void)arg;
-//  // Система выключена полностью и готова к повторному включению
-//  onCan = SET;
-//}
+static void measOnCan(uintptr_t arg){
+  (void)arg;
+  // Система выключена полностью и готова к повторному включению
+  onCan = SET;
+}
 
 
 
@@ -142,7 +142,7 @@ void FRST_KEY_TIM_IRQH( void ) {
 
 void REL_PULSE_TIM_IRQH( void ) {
   REL_PULSE_TIM->SR = 0;
-  // Снимаем сброс по питанию MZU_RST
+  // Выключаем соленоид
   gpioPinResetNow( &gpioPinRelOn );
   measDev.status.relEnd = SET;
 }
@@ -296,7 +296,7 @@ void zoomTimInit( void ){
 
 
 void zoomOn( void ){
-  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
+//  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
 }
 
 void zoomOff( void ){
@@ -345,12 +345,15 @@ void gpioClock( void ){
   trace_puts("Function: Clock FPGA");
 #endif
   if( measDev.status.relStart ){
-    measDev.tout = mTick + 200;
-    gpioPulse( &gpioPinRelOn );
+    measDev.tout = mTick + measDev.relPulse;
+    // Отключаем источник питания от соленоида
+    gpioPinResetNow( &gpioPinRelEn );
+//    gpioPulse( &gpioPinRelOn );
+    measDev.status.relStart = RESET;
   }
   else if( measDev.status.relEnd ){
-    measDev.tout = mTick + 200;
-    gpioPulse( &gpioPinRelOn );
+    measDev.tout = mTick + measDev.relPulse;
+//    gpioPulse( &gpioPinRelOn );
   }
 
 }
@@ -388,9 +391,11 @@ void gpioInit( void ){
   gpioPinSetup( &gpioPinRelEn );
   gpioPinSetup( &gpioPinRelOn );
 
+  pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();
 
   // ----------- TIMERS ---------------------------
+  timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
 //  timerSetup( &pwrOnToutTimer, pwrOnTout, (uintptr_t)NULL);
 //  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
 }

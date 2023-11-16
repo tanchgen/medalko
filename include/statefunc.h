@@ -20,7 +20,7 @@ typedef enum {
 
 } eMiniState;
 
-extern eMiniState measurRunWait;
+extern eMiniState measRunWait;
 
 void stateOff( void );
 

@@ -458,31 +458,31 @@ void USB_LP_CAN1_RX0_IRQHandler(void)	{ if(USB_ISTR & 0x0400) 	{						//If recei
 
 
 void usbInit( void )   {
-  RCC_CFGR_USB  &=0xFFBFFFFF;           /*USB CLOCK PRESCALER = 1.5*/                                     \
-  RCC_APB1ENR_USB |= 0x00800000;          /*TURN ON USB CLOCK*/                                         \
-  RCC_APB2ENR_USB |= 0x00000005;          /*GPIOA ON. ALTERNATE FUNCTION IO ON.*/                                 \
-  GPIOA_CRH_USB &= 0xFFF00FFF;          /*Reset GPIOA12 and GPIOA11.*/                                      \
-  GPIOA_CRH_USB |= 0x00044000;;         /*GPIOA12 (USBDP). GPIOA11 (USBDM).*/                                 \
-  USB_BTABLE    = 0x0000;             /*Allocation table address in the PMA.*/                                \
-  USB_ADDR0_TX  = USB_TX0_BASE;         /*Endpoint 0 transmission buffer initial address in PMA.*/                        \
-  USB_COUNT0_TX = 0x0040;             /*Endpoint 0 transmission buffer lenght 64 byte.*/                            \
-  USB_ADDR0_RX  = USB_RX0_BASE;         /*Endpoint 0 reception buffer initial address in PMA.*/                         \
-  USB_COUNT0_RX = 0x8400;             /*Endpoint 0 recetpion buffer block size = 32 byte, number of blocks = 2. Total dimension 64 byte.*/  \
-  USB_ADDR1_TX  = USB_TX1_BASE;         /*Endpoint 1 transmission buffer initial address in PMA.*/                        \
-  USB_COUNT1_TX = 0x0040;             /*Endpoint 1 transmission buffer lenght 64 byte.*/                            \
-  USB_ADDR1_RX  = USB_RX1_BASE;         /*Endpoint 1 reception buffer initial address in PMA.*/                         \
-  USB_COUNT1_RX = 0x8400;             /*Endpoint 1 recetpion buffer block size = 32 byte, number of blocks = 2. Total dimension 64 byte.*/  \
-  USB_ADDR2_TX  = USB_TX2_BASE;         /*Endpoint 2 transmission buffer initial address in PMA.*/                        \
-  USB_COUNT2_TX = 0x0008;             /*Endpoint 2 transmission buffer lenght 8 byte.*/                           \
-  USB_ADDR2_RX  = USB_RX2_BASE;         /*Endpoint 2 reception buffer initial address in PMA.*/                                           \
+  RCC_CFGR_USB  &=0xFFBFFFFF;           /*USB CLOCK PRESCALER = 1.5*/
+  RCC_APB1ENR_USB |= 0x00800000;          /*TURN ON USB CLOCK*/
+  RCC_APB2ENR_USB |= 0x00000005;          /*GPIOA ON. ALTERNATE FUNCTION IO ON.*/
+  GPIOA_CRH_USB &= 0xFFF00FFF;          /*Reset GPIOA12 and GPIOA11.*/
+  GPIOA_CRH_USB |= 0x00044000;         /*GPIOA12 (USBDP). GPIOA11 (USBDM).*/
+  USB_BTABLE    = 0x0000;             /*Allocation table address in the PMA.*/
+  USB_ADDR0_TX  = USB_TX0_BASE;         /*Endpoint 0 transmission buffer initial address in PMA.*/
+  USB_COUNT0_TX = 0x0040;             /*Endpoint 0 transmission buffer lenght 64 byte.*/
+  USB_ADDR0_RX  = USB_RX0_BASE;         /*Endpoint 0 reception buffer initial address in PMA.*/
+  USB_COUNT0_RX = 0x8400;             /*Endpoint 0 recetpion buffer block size = 32 byte, number of blocks = 2. Total dimension 64 byte.*/
+  USB_ADDR1_TX  = USB_TX1_BASE;         /*Endpoint 1 transmission buffer initial address in PMA.*/
+  USB_COUNT1_TX = 0x0040;             /*Endpoint 1 transmission buffer lenght 64 byte.*/
+  USB_ADDR1_RX  = USB_RX1_BASE;         /*Endpoint 1 reception buffer initial address in PMA.*/
+  USB_COUNT1_RX = 0x8400;             /*Endpoint 1 recetpion buffer block size = 32 byte, number of blocks = 2. Total dimension 64 byte.*/
+  USB_ADDR2_TX  = USB_TX2_BASE;         /*Endpoint 2 transmission buffer initial address in PMA.*/
+  USB_COUNT2_TX = 0x0008;             /*Endpoint 2 transmission buffer lenght 8 byte.*/
+  USB_ADDR2_RX  = USB_RX2_BASE;         /*Endpoint 2 reception buffer initial address in PMA.*/
   USB_COUNT2_RX = 0x1000;             /*Endpoint 2 recetpion buffer block size = 2 byte, number of blocks = 4. Total dimension 8 byte.*/    \
-  USB_CNTR    = 0x0003;             /*USB Interrupt OFF. USB Transceiver OFF. RESET ON.*/                                               \
-  USB_CNTR    = 0x0001;             /*USB Interrupt OFF. USB Transceiver ON. RESET ON*/                                                 \
-  for(wait=0;wait<30;wait++) {}         /*Wait Tsetup = 2.5 us.*/                                         \
-  USB_CNTR    = 0x0000;             /*USB Interrupt OFF. USB Transceiver ON. RESET OFF.*/                                               \
-  USB_ISTR    = 0x0000;             /*Clear interrupt flags.*/                                                                          \
-  USB_CNTR    = 0xF400;             /*Correct Transfer Interrupt ON. PMAOVRM ON. ERROR ON. WAKEUP ON. Reset interrupt ON.*/             \
-  NVIC->ISER[0] = 0x00100000;           /*USB LP Interrupt ON.*/                                        \
+  USB_CNTR    = 0x0003;             /*USB Interrupt OFF. USB Transceiver OFF. RESET ON.*/
+  USB_CNTR    = 0x0001;             /*USB Interrupt OFF. USB Transceiver ON. RESET ON*/
+  for(wait=0;wait<30;wait++) {}         /*Wait Tsetup = 2.5 us.*/
+  USB_CNTR    = 0x0000;             /*USB Interrupt OFF. USB Transceiver ON. RESET OFF.*/
+  USB_ISTR    = 0x0000;             /*Clear interrupt flags.*/
+  USB_CNTR    = 0xF400;             /*Correct Transfer Interrupt ON. PMAOVRM ON. ERROR ON. WAKEUP ON. Reset interrupt ON.*/
+  NVIC->ISER[0] = 0x00100000;           /*USB LP Interrupt ON.*/
   USB_DADDR   = 0x0080;                /*USB ON. ADDRESS = 0.*/
 }
 

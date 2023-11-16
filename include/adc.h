@@ -21,9 +21,12 @@
 
 #define ADC_CH_NUM    4
 #define VDD_CH        17
-#define TEMP_CH       1
-#define PRESS_CH      2
-#define ALCO_CH       3
+#define TEMP_CH       0
+#define PRESS_CH      1
+#define ALCO_CH       2
+
+//#define LEARN_COUNT_MIN   100
+#define LEARN_COUNT_MAX   200
 
 #define ADC_RESULT_PERIOD   10  // периодичность сохранения намеряных результатов ~10мс
 
@@ -62,8 +65,8 @@
 
 typedef enum {
   ADC_PRM_VDD,
-  ADC_PRM_PRESS,
   ADC_PRM_TERM,
+  ADC_PRM_PRESS,
   ADC_PRM_ALCO,
   ADC_PRM_NUM
 } eAdcPrm;
@@ -118,6 +121,11 @@ typedef struct {
 
   FlagStatus adcOn;
   FlagStatus adcOk;
+
+  // PRESS
+  uint16_t pressCount;
+  FlagStatus learnFlag;
+  int32_t pressAvg;
 } sAdcHandle;
 
 // Структура флагов изменения значения параметра, пиков, порогов

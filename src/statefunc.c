@@ -69,7 +69,14 @@ inline void stateOff( void ){
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
     measRunWait = MSTATE_NON;
+    trace_printf("STATE_OFF\n");
     measState++;
+  }
+  else {
+    if( measRunWait == MSTATE_NON ){
+      timerMod( &measOnCanTimer, TOUT_1500 );
+      measRunWait = MSTATE_OFF;
+    }
   }
 }
 
@@ -91,25 +98,28 @@ inline void stateStart( void ){
         if( measDev.tout < mTick ){
           measDev.secsStart = secs;
           measDev.msecStart = msecs;
-          measRunWait = MSTATE_ON;
           // Запуск соленоида
           measDev.status.relStart = SET;
+          // Запуск замеров
           measDev.status.measStart = SET;
+          measRunWait = MSTATE_ON;
         }
         break;
       case MSTATE_ON:
         if( measDev.status.relEnd ){
-          measDev.secsStop = secs;
-          measDev.msecStop = msecs;
+          measDev.secsStart2 = secs;
+          measDev.msecStart2 = msecs;
           measRunWait = MSTATE_ON_OK;
 #if DEBUG_TRACE_RUN
-          trace_puts(" Solenoid on");
+          trace_puts(" Solenoid off");
 #endif
         }
         break;
       case MSTATE_ON_OK:
         if( measDev.status.alcoLow ){
           // Значение ALCO меньше порогового - закончили забор проб
+          measDev.secsStop = secs;
+          measDev.msecStop = msecs;
           measDev.status.measStart = RESET;
           measRunWait = MSTATE_NON;
           measState++;
@@ -216,26 +226,32 @@ inline void stateFault( void ){
         // Запуск троекратного зума
         zoomOff();
         measDev.tout = mTick + 1000;
+        measDev.count = 0;
         measRunWait = MSTATE_ON;
         break;
       case MSTATE_ON:
         if( measDev.tout < mTick ){
           zoomOn();
-          measDev.tout = mTick + 1000;
+          measDev.tout = mTick + 300;
           measRunWait = MSTATE_ON_OK;
         }
         break;
       case MSTATE_ON_OK:
         if( measDev.tout < mTick ){
+          zoomOff();
           if( ++measDev.count == 3 ){
             // Пропикало Третий раз
-            zoomOff();
             measState = MEASST_OFF;
+            measRun = RESET;
+            measRunWait = MSTATE_NON;
 #if DEBUG_TRACE_RUN
             trace_puts("Measure fault");
 #endif
           }
-          measRunWait = MSTATE_NON;
+          else {
+            measDev.tout = mTick + 300;
+            measRunWait = MSTATE_ON;
+          }
         }
         break;
       default:

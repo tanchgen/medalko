@@ -12,10 +12,14 @@
 #include "stm32f10x.h"
 #include "main.h"
 #include "statefunc.h"
+#include "usb_vcp.h"
 
 #define TALLOC_ARRAY_SIZE   4096
 
 uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+
+uint8_t tmpBuff[] = "<USB alco probe>\n<Probe2>";
+uint32_t tmpTout;
 
 static inline void stateProcess( void );
 
@@ -53,7 +57,7 @@ int main(int argc, char* argv[]) {
 
 //  __enable_irq();
 
-  mDelay( 500 );
+  mDelay( 100 );
 
   /*
    *  Разрешение работы периферии.
@@ -61,9 +65,12 @@ int main(int argc, char* argv[]) {
 
   ifaceEnable();
 
+  mDelay(5000);
 #ifdef DEBUG
   trace_puts("ALKO Run");
 #endif
+
+  tmpTout = mTick + 1000;
 
   // Infinite loop
   while (1) {

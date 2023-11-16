@@ -11,7 +11,7 @@
 #include "gpio_arch.h"
 #include "measur.h"
 
-#define R1          10000L       // Сопротивление резистора R1
+#define R1          10000UL       // Сопротивление резистора R1
 #define LN_RT25     9.21034     // ln(Rt) при 25гр.Ц
 #define B25_50      3900
 #define B25_80      3930
@@ -19,12 +19,14 @@
 #define B25_100     3944
 #define _1_298K     0.0033557   // Обратная величина от (25 + 273)гр.Ц
 
-#define PRESS_NUL   2500        // Напряжение нулевого давления
+//s#define PRESS_NUL   1250        // Напряжение нулевого давления
 
 /** Структура дескриптора модуля АЦП: Бат. CMOS (Bat_CMOS, vbat) */
 sAdcHandle adcHandle = {
   .adcOn = RESET,
   .adcOk = RESET,
+  .pressCount = 0,
+  .learnFlag = SET,
 };
 
 sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
@@ -32,12 +34,12 @@ sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_PULLDOW
 sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
 
 
-#define ADC_KPARAM_0    (4096L)   // Делитель для VBAT: 10/20
+#define ADC_KPARAM_0    (4096UL)   // Делитель для VBAT: 10/20
 
 const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0,
     ADC_KPARAM_0,
-    ADC_KPARAM_0,
+    ADC_KPARAM_0 / 10,
     ADC_KPARAM_0
 };
 
@@ -95,11 +97,17 @@ void adcDmaInit(void) {
   /* Configure the DMA transfer */
   DMA1_Channel1->CPAR = (uint32_t)&(ADC1->DR);
   DMA1_Channel1->CMAR = (uint32_t)adcHandle.adcVprm;
-  DMA1_Channel1->CCR = DMA_MemoryDataSize_Word | DMA_PeripheralDataSize_Word
+  DMA1_Channel1->CCR = DMA_MemoryDataSize_HalfWord | DMA_PeripheralDataSize_HalfWord
       | DMA_CCR1_MINC | DMA_CCR1_CIRC | DMA_CCR1_TCIE | DMA_CCR1_TEIE | DMA_CCR1_PL_1;
   /* Set DMA transfer addresses of source and destination */
-  DMA1_Channel1->CNDTR = ADC_PRM_NUM/2;
+  DMA1_Channel1->CNDTR = ADC_PRM_NUM;
   NVIC_SetPriority( DMA1_Channel1_IRQn, 2 );
+  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /*## Activation of DMA #####################################################*/
+  /* Enable the DMA transfer */
+  DMA1_Channel1->CCR |= DMA_CCR1_EN;
+  NVIC_SetPriority(DMA1_Channel1_IRQn, 1); /* DMA IRQ lower priority than ADC IRQ */
+  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
 
@@ -109,40 +117,44 @@ void adcInit(void){
 
   // Вкл тактирование АЦП
   RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;// | RCC_APB2ENR_SYSCFGEN;
-  RCC->APB2ENR |= RCC_APB2ENR_ADC2EN;// | RCC_APB2ENR_SYSCFGEN;
+//  RCC->APB2ENR |= RCC_APB2ENR_ADC2EN;// | RCC_APB2ENR_SYSCFGEN;
 
   ADC1->CR2 &= ~ADC_CR2_ADON;
-  ADC2->CR2 &= ~ADC_CR2_ADON;
+//  ADC2->CR2 &= ~ADC_CR2_ADON;
 
   // Режим сканирования
-  ADC1->CR1 = ADC_CR1_SCAN | ADC_CR1_DUALMOD_1 | ADC_CR1_DUALMOD_2;
-  ADC2->CR1 = ADC_CR1_SCAN;
+  ADC1->CR1 = ADC_CR1_SCAN /*| ADC_CR1_DUALMOD_1 | ADC_CR1_DUALMOD_2*/;
+//  ADC2->CR1 = ADC_CR1_SCAN;
   // Режим перебора каналов и DMA Выбор триггера для преобразования TIM3_TRGO
-  ADC1->CR2 = ADC_CR2_TSVREFE | ADC_CR2_DMA | ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
-  ADC2->CR2 = ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
+  ADC1->CR2 = ADC_CR2_TSVREFE | ADC_CR2_DMA | ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL;
+//  ADC2->CR2 = ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
 
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
-  ADC1->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
-  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5);
+  ADC1->SQR1 = (ADC_PRM_NUM - 1) << 20;
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15);
   // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
-  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
-  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
+//  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
+//  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
   ADC1->SMPR1 = ADC_SMPR1_SMP17_1;
-  ADC1->SMPR2 = ADC_SMPR2_SMP0_1;
-  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+//  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
   ADC1->CR2 |= ADC_CR2_ADON;
-  ADC2->CR2 |= ADC_CR2_ADON;
+//  ADC2->CR2 |= ADC_CR2_ADON;
   // Wait for ADC ON >= (2 ADC_CLK)
-  for( uint32_t wait = (32 >> 1); wait; wait-- )
+  for( uint32_t wait = (64 >> 1); wait; wait-- )
   {}
   ADC1->CR2 |= ADC_CR2_CAL;
-  ADC2->CR2 |= ADC_CR2_CAL;
+//  ADC2->CR2 |= ADC_CR2_CAL;
   // Wait ADC1 CAL and ADC2 CAL
-  while( (ADC1->CR2 |= ADC_CR2_CAL) || (ADC2->CR2 |= ADC_CR2_CAL) )
+  while( (ADC1->CR2 & ADC_CR2_CAL) /*|| (ADC2->CR2 & ADC_CR2_CAL)*/ )
   {}
+
+  /* Configure NVIC to enable ADC1 interruptions */
+  NVIC_SetPriority(ADC1_2_IRQn, 0); /* ADC IRQ greater priority than DMA IRQ */
+  NVIC_EnableIRQ(ADC1_2_IRQn);
 
 }
 
@@ -167,7 +179,7 @@ static inline void adcGpioInit( void ){
   *
   * @retval None
   */
-inline void adcTrigTimInit( void ){
+void adcTrigTimInit( void ){
   uint16_t psc;
   uint8_t rc;
 
@@ -185,10 +197,16 @@ inline void adcTrigTimInit( void ){
 
   // Период таймера 10 мс.
   ADC_TIM->ARR = ( (ADC_TIM_FREQ * ADC_RESULT_PERIOD) / 1000 ) -1;
-  ADC_TIM->CR1 |= TIM_CR1_URS | TIM_CR1_ARPE;
+  ADC_TIM->CCR1 = (ADC_TIM->ARR + 1) / 2;
+
+  // ШИМ режим 110, CCR1 - preload
+  ADC_TIM->CCMR1 = (ADC_TIM->CCMR1 & ~TIM_CCMR1_CC1S) | TIM_CCMR1_OC1M_2  | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1PE;
+  ADC_TIM->CCER = TIM_CCER_CC1E;
   ADC_TIM->CR2 |= TIM_CR2_MMS_1;    // Update -> TRGO
-  ADC_TIM->EGR |= TIM_EGR_UG;
-  ADC_TIM->DIER = 0;
+  ADC_TIM->DIER |= TIM_DIER_UIE;
+
+  NVIC_EnableIRQ( TIM3_IRQn );
+  NVIC_SetPriority( TIM3_IRQn, 1 );
 }
 
 
@@ -197,8 +215,8 @@ void adcPrmInit( sAdcData * prm ){
 
   prm->prm = 0;
 
-  prm->prmPeakMax = (int32_t)(~(0UL >> 1));
-  prm->prmPeakMin = (int32_t)(0UL >> 1);
+  prm->prmPeakMax = (int32_t)~((~0UL) >> 1);
+  prm->prmPeakMin = (int32_t)((~0UL) >> 1);
 }
 
 
@@ -211,13 +229,14 @@ void adcStart( void ){
   adcHandle.adcOn = SET;
   // Включаем прерывание от DMA
   /* Configure NVIC to enable DMA interruptions */
-  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+//  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /*## Activation of DMA #####################################################*/
   /* Enable the DMA transfer */
-  DMA1_Channel1->CCR |= DMA_CCR1_EN;
+//  DMA1_Channel1->CCR |= DMA_CCR1_EN;
 
   ADC_TIM->CR1 |= TIM_CR1_CEN;
 //  ADC1->CR2 |= ADC_CR2_SWSTART;
+//  ADC1->CR2 |= ADC_CR2_EXTTRIG;
 }
 
 
@@ -231,14 +250,15 @@ void adcStart( void ){
 FlagStatus adcStop( void ){
   FlagStatus rc = SET;
   if( adcHandle.adcOn ){
-    ADC_TIM->CR1 &= ~TIM_CR1_CEN;
+//    ADC_TIM->CR1 &= ~TIM_CR1_CEN;
+    ADC1->CR2 &= ~ADC_CR2_EXTTRIG;
     // ADC запущен - принудительно останавливавем
-    ADC1->CR2 &= ~ADC_CR2_ADON;
+//    ADC1->CR2 &= ~ADC_CR2_ADON;
     // Выключаем DMA
-    DMA1_Channel1->CCR &= ~DMA_CCR1_EN;
+//    DMA1_Channel1->CCR &= ~DMA_CCR1_EN;
 
     // Выключаем прерывание от DMA
-    NVIC_DisableIRQ( DMA1_Channel1_IRQn );
+//    NVIC_DisableIRQ( DMA1_Channel1_IRQn );
 
     adcHandle.adcOn = RESET;
     adcHandle.adcOk = RESET;
@@ -256,6 +276,14 @@ FlagStatus adcStop( void ){
   */
 void ADC1_IRQHandler( void ){ while(1){} }
 
+void TIM3_IRQHandler( void ){
+  if( TIM3->SR & TIM_SR_UIF ){
+    ADC1->CR2 |= ADC_CR2_SWSTART;
+    TIM3->SR &= ~TIM_SR_UIF;
+  }
+}
+
+
 /**
   * @brief  Обработка прерывания DMA АЦП.
   * @param  None
@@ -272,13 +300,15 @@ void DMA1_Channel1_IRQHandler( void ){
   if ((DMA1->ISR & DMA_ISR_TCIF1) != RESET){
     // Выставляем флаг готовности данных
     adcHandle.adcOk = SET;
-    DMA2->IFCR |= DMA_IFCR_CTCIF1;
+    DMA1->IFCR |= DMA_IFCR_CTCIF1;
+  }
+  if ((DMA1->ISR & DMA_ISR_HTIF1) != RESET){
+    DMA1->IFCR |= DMA_IFCR_CHTIF1;
   }
   else {
     // Снимаем флаг готовности данных
     adcHandle.adcOk = RESET;
-    while(1)
-    {}
+    DMA1->IFCR |= DMA_IFCR_CGIF1;
   }
 }
 
@@ -302,12 +332,33 @@ void adcProcess( uintptr_t arg ){
         break;
       case ADC_PRM_PRESS:     // Давление Pa = mV
         // Вычисляем напряжение
-        pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]) - PRESS_NUL;
-        pressProc( pData->prm );
+        if( adcHandle.learnFlag ){
+//          if( ++adcHandle.learnCount > LEARN_COUNT_MIN ){
+            if( ++adcHandle.pressCount <= LEARN_COUNT_MAX ){
+              adcHandle.pressAvg += adcHandle.adcVprm[i];
+            }
+            else {
+              assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
+              adcHandle.pressAvg /= (LEARN_COUNT_MAX/* - LEARN_COUNT_MIN*/);
+              adcHandle.learnFlag = RESET;
+              adcHandle.pressCount = 0;
+            }
+//          }
+        }
+        else {
+          int32_t tmpprm;
+          int16_t prm;
+          tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
+          prm = pData->prm;
+          movAvgS( (int16_t *)&prm, tmpprm );
+          pData->prm = prm;
+          adcHandle.pressCount++;
+          pressProc( pData->prm, adcHandle.pressCount );
+        }
         break;
       case ADC_PRM_TERM: {
         // Вычисляем напряжение
-        uint16_t rt = ((R1 * ADC_KPARAM_0) / adcHandle.adcVprm[i]) - R1;
+        uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
         // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
         adcHandle.adcData[i].prm = (int32_t)(1000.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 273000;
         termProc( adcHandle.adcData[i].prm );
@@ -316,6 +367,7 @@ void adcProcess( uintptr_t arg ){
       case ADC_PRM_ALCO:      // Просто напряжение
         // Вычисляем напряжение
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+        alcoProc( adcHandle.adcData[i].prm );
         break;
       default:
         break;

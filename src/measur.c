@@ -9,6 +9,7 @@
 #include "tinyalloc.h"
 #include "times.h"
 #include "usb_vcp.h"
+#include "statefunc.h"
 #include "measur.h"
 
 eMeasState measState = MEASST_OFF;
@@ -22,11 +23,13 @@ eSendState sendState;
 uint8_t sendBuf[96];
 
 
-const uint16_t measPressLimMin = 150;
-const float measPressLimMax = 1500;
+const uint16_t measPressLimMin = 90;
+const float measPressLimMax = 500;
 const float measAlkoLimMin = 15.0;
 
 sMeasur measDev;
+// Определяем начальный таймаут до начала забора проб
+int32_t pressAvg;
 
 // ================ Private Function =============================
 // ==================================================================
@@ -35,8 +38,8 @@ sMeasur measDev;
 size_t sendTmPrep( uint8_t * buf ){
   size_t sz = 0;
 
-  sz = sprintf( (char*)buf, "\"alcoData\":{\"startTime\":%ld.%ld,\"stopTime\":%ld.%ld,\"measData\":{", \
-                measDev.secsStart, measDev.msecStart, measDev.secsStop, measDev.msecStop );
+  sz = sprintf( (char*)buf, "\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":{", \
+                measDev.secsStart, measDev.msecStart, measDev.secsStart2, measDev.msecStart2 );
   return sz;
 }
 
@@ -61,11 +64,12 @@ size_t sendTmCont( uint8_t * buf ){
 }
 
 size_t sendTmEnd( uint8_t * buf ){
-  // Закрывающие скобки
-  *buf++ = '}';
-  *buf++ = '}';
+  uint32_t sz = 0;
 
-  return 2UL;
+  // Закрывающие скобки
+  sz = sprintf( (char*)buf, "},\"stopTime\":%ld.%ld}", measDev.secsStop, measDev.msecStop );
+
+  return sz;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -83,37 +87,46 @@ uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
 
 
 // Обработка результата ADC_PRESS
-void pressProc( int32_t press ){
+void pressProc( int32_t press, uint16_t count ){
+  static uint32_t startTout;
   if( measState == MEASST_OFF ){
       if( (press > measPressLimMin) && onCan ){
         // Давление выше минимального порога - Запускаем процесс забора проб
         measOnNeed = SET;
+        startTout = mTick + MEAS_TIME_MIN;
       }
   }
   else {
     if( (press < measPressLimMin) && (measDev.status.pressFaultLow == RESET) ){
       measDev.status.pressFaultLow = SET;
+      measRunWait = MSTATE_NON;
       measState = MEASST_FAULT;
     }
     else {
       if( measState == MEASST_START_PROB ){
         if( measDev.status.measStart == RESET ){
-          // Определяем начальный таймаут до начала забора проб
-          if( press >= measPressLimMax ){
-            measDev.tout = mTick + MEAS_TIME_MIN;
+
+          pressAvg += press;
+          press = pressAvg / count;
+          if( startTout < mTick ){
+            if( press >= measPressLimMax ){
+              measDev.tout = mTick + MEAS_TIME_MIN;
+            }
+            else {
+              float tmp;
+
+              tmp = (((press - measPressLimMin) * 1000)/(measPressLimMax - measPressLimMin));
+              tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
+              tmp /= 1000;
+              tmp += MEAS_TIME_MIN;
+              // Корректируем время
+              measDev.tout = measDev.tout - MEAS_TIME_MIN + tmp;
+            }
           }
           else {
-            float tmp;
-
-            tmp = (((press - measPressLimMin) * 1000)/(measPressLimMax - measPressLimMin));
-            tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
-            tmp /= 1000;
-            tmp += MEAS_TIME_MIN;
+            // Забор проб: созраняем полученое значение
+            measDev.alcoData[measDev.dataNum].press = press;
           }
-        }
-        else {
-          // Забор проб: созраняем полученое значение
-          measDev.alcoData[measDev.dataNum].press = press;
         }
       }
     }
@@ -138,6 +151,9 @@ void alcoProc( int32_t alco ){
     if( alco < measAlkoLimMin ){
       // Значение ALCO упало ниже порога - будем завершать данный цикл
       measDev.status.alcoLow = SET;
+    }
+    else {
+      measDev.status.alcoHi = SET;
     }
   }
 }
@@ -225,4 +241,6 @@ void measInit( void ){
     assert_param( tmpAd != NULL );
   }
   measDev.alcoData = tmpAd;
+  measDev.relPulse = REL_PULSE_DEF;
+
 }
