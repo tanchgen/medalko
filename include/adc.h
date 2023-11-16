@@ -17,13 +17,14 @@
 #include "gpio.h"
 #include "tm.h"
 
-#define VREFINT_VOL     1200
+#define K_VDD           (0.8975)
+#define VREFINT_VOL     ((uint32_t)(1200.0 * K_VDD))
 
 #define ADC_CH_NUM    4
 #define VDD_CH        17
-#define TEMP_CH       1
-#define PRESS_CH      2
-#define ALCO_CH       3
+#define TEMP_CH       0
+#define PRESS_CH      1
+#define ALCO_CH       2
 
 #define ADC_RESULT_PERIOD   10  // периодичность сохранения намеряных результатов ~10мс
 

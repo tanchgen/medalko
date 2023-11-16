@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef DEBUG
-  trace_puts("Hello! Medic!");
+  trace_puts("\nHello! Medic!");
 #endif
   /* Инициализация интерфейсов. */
 //  mDelay( 100 );
@@ -138,7 +138,9 @@ static void swoCfg( uint32_t cpuCoreFreqHz ) {
 
     // PB3
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
-    GPIOB->CRL |= (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | GPIO_MODE_AFPP_50;
+    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+    GPIOB->CRL = (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | (((uint32_t)GPIO_MODE_AFPP_50) << (3*4));
+    AFIO->MAPR = (AFIO->MAPR & ~AFIO_MAPR_SWJ_CFG) | AFIO_MAPR_SWJ_CFG_NOJNTRST;
     DBGMCU->CR |= DBGMCU_CR_TRACE_IOEN; // Enable IO trace pins
 
     if (!(DBGMCU->CR & DBGMCU_CR_TRACE_IOEN))

@@ -98,8 +98,13 @@ void adcDmaInit(void) {
   DMA1_Channel1->CCR = DMA_MemoryDataSize_Word | DMA_PeripheralDataSize_Word
       | DMA_CCR1_MINC | DMA_CCR1_CIRC | DMA_CCR1_TCIE | DMA_CCR1_TEIE | DMA_CCR1_PL_1;
   /* Set DMA transfer addresses of source and destination */
-  DMA1_Channel1->CNDTR = ADC_PRM_NUM/2;
+  DMA1_Channel1->CNDTR = ADC_PRM_NUM / 2;
+  /*## Activation of DMA #####################################################*/
+  /* Enable the DMA transfer */
+  DMA1_Channel1->CCR |= DMA_CCR1_EN;
+  /* Configure NVIC to enable DMA interruptions */
   NVIC_SetPriority( DMA1_Channel1_IRQn, 2 );
+  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
 
@@ -118,30 +123,32 @@ void adcInit(void){
   ADC1->CR1 = ADC_CR1_SCAN | ADC_CR1_DUALMOD_1 | ADC_CR1_DUALMOD_2;
   ADC2->CR1 = ADC_CR1_SCAN;
   // Режим перебора каналов и DMA Выбор триггера для преобразования TIM3_TRGO
-  ADC1->CR2 = ADC_CR2_TSVREFE | ADC_CR2_DMA | ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
-  ADC2->CR2 = ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL_2;
+  ADC1->CR2 = ADC_CR2_TSVREFE | ADC_CR2_DMA | ADC_CR2_EXTSEL_2 /*| ADC_CR2_EXTTRIG*/ ;
+  ADC2->CR2 = /*ADC_CR2_EXTTRIG | */ADC_CR2_EXTSEL_2;
 
+  ADC1->SQR1 = (ADC_PRM_NUM / 2 - 1) << 20;
+//  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15);
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
   ADC1->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
-  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5);
+  ADC1->SQR3 = (VDD_CH << 0) | (PRESS_CH << 5);
   // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
   ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
-  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
+  ADC2->SQR3 = (TEMP_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
-  ADC1->SMPR1 = ADC_SMPR1_SMP17_1;
-  ADC1->SMPR2 = ADC_SMPR2_SMP0_1;
-  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+  ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
+  ADC1->SMPR2 = ADC_SMPR2_SMP1_2 /*| ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1*/;
+  ADC2->SMPR2 = ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP2_2;
 
   ADC1->CR2 |= ADC_CR2_ADON;
   ADC2->CR2 |= ADC_CR2_ADON;
   // Wait for ADC ON >= (2 ADC_CLK)
-  for( uint32_t wait = (32 >> 1); wait; wait-- )
+  for( uint32_t wait = 32; wait; wait-- )
   {}
   ADC1->CR2 |= ADC_CR2_CAL;
   ADC2->CR2 |= ADC_CR2_CAL;
   // Wait ADC1 CAL and ADC2 CAL
-  while( (ADC1->CR2 |= ADC_CR2_CAL) || (ADC2->CR2 |= ADC_CR2_CAL) )
+  while( (ADC1->CR2 & ADC_CR2_CAL) || (ADC2->CR2 & ADC_CR2_CAL) )
   {}
 
 }
@@ -185,7 +192,7 @@ inline void adcTrigTimInit( void ){
 
   // Период таймера 10 мс.
   ADC_TIM->ARR = ( (ADC_TIM_FREQ * ADC_RESULT_PERIOD) / 1000 ) -1;
-  ADC_TIM->CR1 |= TIM_CR1_URS | TIM_CR1_ARPE;
+  ADC_TIM->CR1 |= TIM_CR1_URS | TIM_CR1_URS | TIM_CR1_ARPE;
   ADC_TIM->CR2 |= TIM_CR2_MMS_1;    // Update -> TRGO
   ADC_TIM->EGR |= TIM_EGR_UG;
   ADC_TIM->DIER = 0;
@@ -210,13 +217,10 @@ void adcStart( void ){
 
   adcHandle.adcOn = SET;
   // Включаем прерывание от DMA
-  /* Configure NVIC to enable DMA interruptions */
-  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /*## Activation of DMA #####################################################*/
-  /* Enable the DMA transfer */
-  DMA1_Channel1->CCR |= DMA_CCR1_EN;
 
   ADC_TIM->CR1 |= TIM_CR1_CEN;
+  ADC1->CR2 |= ADC_CR2_EXTTRIG ;
+  ADC2->CR2 |= ADC_CR2_EXTTRIG ;
 //  ADC1->CR2 |= ADC_CR2_SWSTART;
 }
 
@@ -272,7 +276,7 @@ void DMA1_Channel1_IRQHandler( void ){
   if ((DMA1->ISR & DMA_ISR_TCIF1) != RESET){
     // Выставляем флаг готовности данных
     adcHandle.adcOk = SET;
-    DMA2->IFCR |= DMA_IFCR_CTCIF1;
+    DMA1->IFCR |= DMA_IFCR_CTCIF1;
   }
   else {
     // Снимаем флаг готовности данных
