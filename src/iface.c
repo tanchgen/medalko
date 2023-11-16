@@ -5,6 +5,7 @@
 void gpioInit( void );
 void adcMainInit( void );
 void usbInit( void );
+void measInit( void );
 
 void gpioEnable( void );
 void adcMainEnable( void );
@@ -12,13 +13,15 @@ void adcMainEnable( void );
 void timersClock( void );
 void gpioClock( void );
 void adcProcess( void );
-void usbClock( void );
+void usbClock();
+void measClock( void );
 
 void (*funcClock[])( void ) = {
    timersClock,
    gpioClock,
    adcProcess,
-   usbClock
+   measClock,
+   usbClock,
 };
 
 void ifaceEnable( void ){
@@ -29,6 +32,7 @@ void ifaceEnable( void ){
 void ifaceInit( void ){
   gpioInit();
   adcMainInit();
+  measInit();
   usbInit();
 }
 

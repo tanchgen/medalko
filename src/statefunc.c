@@ -69,7 +69,14 @@ inline void stateOff( void ){
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
     measRunWait = MSTATE_NON;
+    trace_printf(":On begin\n");
     measState++;
+  }
+  else {
+    if( measRunWait == MSTATE_NON ){
+      timerMod( &measOnCanTimer, TOUT_1500 );
+      measRunWait = MSTATE_OFF;
+    }
   }
 }
 
@@ -91,26 +98,21 @@ inline void stateStart( void ){
         if( measDev.tout < mTick ){
           measDev.secsStart = secs;
           measDev.msecStart = msecs;
-          measRunWait = MSTATE_ON;
           // Запуск соленоида
           measDev.status.relStart = SET;
+          trace_printf(":Solenoid start\n");
+          // Запуск замеров
           measDev.status.measStart = SET;
+          measRunWait = MSTATE_ON;
         }
         break;
       case MSTATE_ON:
         if( measDev.status.relEnd ){
-          measDev.secsStop = secs;
-          measDev.msecStop = msecs;
-          measRunWait = MSTATE_ON_OK;
+          measDev.secsStart2 = secs;
+          measDev.msecStart2 = msecs;
 #if DEBUG_TRACE_RUN
-          trace_puts(" Solenoid on");
+          trace_printf(":Solenoid stop - Meas start\n");
 #endif
-        }
-        break;
-      case MSTATE_ON_OK:
-        if( measDev.status.alcoLow ){
-          // Значение ALCO меньше порогового - закончили забор проб
-          measDev.status.measStart = RESET;
           measRunWait = MSTATE_NON;
           measState++;
         }
@@ -121,6 +123,30 @@ inline void stateStart( void ){
   }
 }
 
+
+/**
+ * @brief Функции обработки состояния MEASST_FLOW_PROBE системы
+  *
+  * @param[in]  self  дескриптор интерфейса
+  *
+  * @retval none
+  */
+inline void stateFlow( void ){
+  // case MEASST_FLOW_PROB:   // Система закончила забор проб
+  if( measRun == SET ){
+    if( measDev.status.alcoLow ){
+      // Значение ALCO меньше порогового - закончили забор проб
+      measDev.secsStop = secs;
+      measDev.msecStop = msecs;
+      measDev.status.measStart = RESET;
+#if DEBUG_TRACE_RUN
+      trace_printf(":Alko low. Meas stop\n");
+#endif
+      assert_param( measRunWait == MSTATE_NON );
+      measState++;
+    }
+  }
+}
 
 /**
  * @brief Функции обработки состояния MEASST_END_PROBE системы
@@ -136,6 +162,9 @@ inline void stateEnd( void ){
       case MSTATE_NON:
         zoomOff();
         // TODO: Запуск оптавки данных
+#if DEBUG_TRACE_RUN
+        trace_printf(":Send start\n");
+#endif
         measDev.status.sendStart = SET;
         measRunWait = MSTATE_ON;
         break;
@@ -165,7 +194,7 @@ inline void stateProc( void ){
     switch( measRunWait ){
       case MSTATE_NON:
 #if DEBUG_TRACE_RUN
-        trace_puts(" MEAS data sent");
+        trace_puts(":Meas data sent");
 #endif
         measRunWait = MSTATE_ON;
         break;
@@ -194,7 +223,7 @@ inline void stateFin( void ){
     measRunWait = MSTATE_NON;
     measState = MEASST_OFF;
 #if DEBUG_TRACE_RUN
-    trace_puts(" MEAS fin");
+    trace_puts(":Meas fin");
 #endif
   }
 }
@@ -216,26 +245,35 @@ inline void stateFault( void ){
         // Запуск троекратного зума
         zoomOff();
         measDev.tout = mTick + 1000;
+        measDev.count = 0;
         measRunWait = MSTATE_ON;
+#if DEBUG_TRACE_RUN
+        trace_puts("Measure fault");
+#endif
         break;
       case MSTATE_ON:
         if( measDev.tout < mTick ){
           zoomOn();
-          measDev.tout = mTick + 1000;
+          measDev.tout = mTick + 300;
           measRunWait = MSTATE_ON_OK;
+#if DEBUG_TRACE_RUN
+          trace_printf(":Fault on %d", measDev.count );
+#endif
         }
         break;
       case MSTATE_ON_OK:
         if( measDev.tout < mTick ){
+          zoomOff();
           if( ++measDev.count == 3 ){
             // Пропикало Третий раз
-            zoomOff();
             measState = MEASST_OFF;
-#if DEBUG_TRACE_RUN
-            trace_puts("Measure fault");
-#endif
+            measRun = RESET;
+            measRunWait = MSTATE_NON;
           }
-          measRunWait = MSTATE_NON;
+          else {
+            measDev.tout = mTick + 300;
+            measRunWait = MSTATE_ON;
+          }
         }
         break;
       default:

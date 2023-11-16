@@ -32,7 +32,8 @@ typedef enum {
 
 typedef enum {
   GPIO_PULLDOWN = 0,
-  GPIO_PULLUP = 1
+  GPIO_PULLUP = 1,
+  GPIO_NOPULL = 2,
 } eGpioPuPd;
 
 //typedef enum

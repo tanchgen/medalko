@@ -35,7 +35,12 @@ void gpioPinSetup(sGpioPin *pin) {
   }
 
   // MODE
-  *(&(pin->gpio->CRL) + (pin->pinNum & 0x8)) = pin->mode;
+  if( pin->pinNum < 8){
+    pin->gpio->CRL = (pin->gpio->CRL & ~(0xF << (pin->pinNum*4))) | pin->mode  << (pin->pinNum*4);
+  }
+  else {
+    pin->gpio->CRH = (pin->gpio->CRH & ~(0xF  << ((pin->pinNum & 0x7)*4))) | pin->mode  << ((pin->pinNum & 0x7)*4);
+  }
 }
 
 //void extiPinSetup(sExtiPin *pin ){

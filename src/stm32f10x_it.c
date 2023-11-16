@@ -112,44 +112,12 @@ void DebugMon_Handler(void){
 void PendSV_Handler(void){
 }
 
-
-// Прерывание датчика Холла - измерителя потока
-void EXTI9_5_IRQHandler(void){ while(1){} }
-
-/**
-  * @brief  This function handles External line 3 interrupt request.
-  * @param  None
-  * @retval None
-  */
-void EXTI3_IRQHandler(void){ while(1){} }
-
-/**
-  * @brief  This function handles External line 10 interrupt request.
-  * @param  None
-  * @retval None
-  */
-void EXTI15_10_IRQHandler(void){ while(1){} }
 /******************************************************************************/
 /*                 STM32F2xx Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
 /*  available peripheral interrupt handler's name please refer to the startup */
 /*  file (startup_stm32f2xx.s).                                               */
 /******************************************************************************/
-void TIM4_IRQHandler( void ){  while(1){} }
-
-
-void USB_HP_CAN1_TX_IRQHandler( void ){
-//	canTxIrqHandler();
-}
-void CAN1_TX_IRQHandler( void ) {
-//	canTxIrqHandler();
-}
-
-void CAN1_RX1_IRQHandler( void ){
-}
-
-void CAN1_SCE_IRQHandler( void ){
-}
 
 /**
   * @brief  This function handles PPP interrupt request.
@@ -159,5 +127,51 @@ void CAN1_SCE_IRQHandler( void ){
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+void WWDG_IRQHandler(void){ while(1){} };
+void PVD_IRQHandler(void){ while(1){} };
+void TAMPER_IRQHandler(void){ while(1){} };
+void RTC_IRQHandler(void){ while(1){} };
+void FLASH_IRQHandler(void){ while(1){} };
+void RCC_IRQHandler(void){ while(1){} };
+void EXTI0_IRQHandler(void){ while(1){} };
+void EXTI1_IRQHandler(void){ while(1){} };
+void EXTI2_IRQHandler(void){ while(1){} };
+void EXTI3_IRQHandler(void){ while(1){} };
+void EXTI4_IRQHandler(void){ while(1){} };
+//void DMA1_Channel1_IRQHandler(void){ while(1){} };
+void DMA1_Channel2_IRQHandler(void){ while(1){} };
+void DMA1_Channel3_IRQHandler(void){ while(1){} };
+void DMA1_Channel4_IRQHandler(void){ while(1){} };
+void DMA1_Channel5_IRQHandler(void){ while(1){} };
+void DMA1_Channel6_IRQHandler(void){ while(1){} };
+void DMA1_Channel7_IRQHandler(void){ while(1){} };
+void ADC1_2_IRQHandler(void){ while(1){} };
+void USB_HP_CAN1_TX_IRQHandler(void){ while(1){} };
+//void USB_LP_CAN1_RX0_IRQHandler(void){ while(1){} };
+void CAN1_RX1_IRQHandler(void){ while(1){} };
+void CAN1_SCE_IRQHandler(void){ while(1){} };
+void EXTI9_5_IRQHandler(void){ while(1){} };
+
+void TIM1_BRK_IRQHandler(void){ while(1){} };
+void TIM1_UP_IRQHandler(void){ while(1){} };
+void TIM1_TRG_COM_IRQHandler(void){ while(1){} };
+
+void TIM1_CC_IRQHandler(void){ while(1){} };
+//void TIM2_IRQHandler(void){ while(1){} };
+//void TIM3_IRQHandler(void){ while(1){} };
+void TIM4_IRQHandler(void){ while(1){} };
+void I2C1_EV_IRQHandler(void){ while(1){} };
+void I2C1_ER_IRQHandler(void){ while(1){} };
+void I2C2_EV_IRQHandler(void){ while(1){} };
+void I2C2_ER_IRQHandler(void){ while(1){} };
+void SPI1_IRQHandler(void){ while(1){} };
+void SPI2_IRQHandler(void){ while(1){} };
+void USART1_IRQHandler(void){ while(1){} };
+void USART2_IRQHandler(void){ while(1){} };
+void USART3_IRQHandler(void){ while(1){} };
+void EXTI15_10_IRQHandler(void){ while(1){} };
+void RTCAlarm_IRQHandler(void){ while(1){} };
+void USBWakeUp_IRQHandler(void){ while(1){} };
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

@@ -12,10 +12,11 @@
 #include "stm32f10x.h"
 #include "main.h"
 #include "statefunc.h"
+#include "usb_vcp.h"
 
-#define TALLOC_ARRAY_SIZE   4096
+#define TALLOC_ARRAY_SIZE   8192
 
-uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
+//uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 
 static inline void stateProcess( void );
 
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
   // Tiny memory allocated init
-  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
+//  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 
   /*
    *  Инициализация периферии.
@@ -53,7 +54,7 @@ int main(int argc, char* argv[]) {
 
 //  __enable_irq();
 
-  mDelay( 500 );
+  mDelay( 100 );
 
   /*
    *  Разрешение работы периферии.
@@ -85,6 +86,9 @@ static inline void stateProcess( void ){
 //      break;
     case MEASST_START_PROB:
       stateStart();
+      break;
+    case MEASST_FLOW_PROB:
+      stateFlow();
       break;
     case MEASST_END_PROB:
       stateEnd();
@@ -140,7 +144,7 @@ static void swoCfg( uint32_t cpuCoreFreqHz ) {
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
     GPIOB->CRL = (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | (((uint32_t)GPIO_MODE_AFPP_50) << (3*4));
-    AFIO->MAPR = (AFIO->MAPR & ~AFIO_MAPR_SWJ_CFG) | AFIO_MAPR_SWJ_CFG_NOJNTRST;
+    AFIO->MAPR = (AFIO->MAPR & ~AFIO_MAPR_SWJ_CFG) | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
     DBGMCU->CR |= DBGMCU_CR_TRACE_IOEN; // Enable IO trace pins
 
     if (!(DBGMCU->CR & DBGMCU_CR_TRACE_IOEN))

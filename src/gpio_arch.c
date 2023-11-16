@@ -7,9 +7,11 @@
 #include "measur.h"
 #include "gpio_arch.h"
 
-sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+
+sGpioPin gpioPinTest = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 FlagStatus relOnSet;
 uint8_t relOnCount;
@@ -41,11 +43,11 @@ struct timer_list  measOnCanTimer;
   *
   * @retval none
   */
-//static void measurOnCan(uintptr_t arg){
-//  (void)arg;
-//  // Система выключена полностью и готова к повторному включению
-//  onCan = SET;
-//}
+static void measOnCan(uintptr_t arg){
+  (void)arg;
+  // Система выключена полностью и готова к повторному включению
+  onCan = SET;
+}
 
 
 
@@ -142,7 +144,7 @@ void FRST_KEY_TIM_IRQH( void ) {
 
 void REL_PULSE_TIM_IRQH( void ) {
   REL_PULSE_TIM->SR = 0;
-  // Снимаем сброс по питанию MZU_RST
+  // Выключаем соленоид
   gpioPinResetNow( &gpioPinRelOn );
   measDev.status.relEnd = SET;
 }
@@ -296,7 +298,7 @@ void zoomTimInit( void ){
 
 
 void zoomOn( void ){
-  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
+//  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
 }
 
 void zoomOff( void ){
@@ -345,11 +347,14 @@ void gpioClock( void ){
   trace_puts("Function: Clock FPGA");
 #endif
   if( measDev.status.relStart ){
-    measDev.tout = mTick + 200;
+    measDev.tout = mTick + measDev.relPulse;
+    // Отключаем источник питания от соленоида
+    gpioPinResetNow( &gpioPinRelEn );
     gpioPulse( &gpioPinRelOn );
+    measDev.status.relStart = RESET;
   }
   else if( measDev.status.relEnd ){
-    measDev.tout = mTick + 200;
+    measDev.tout = mTick + measDev.relPulse;
     gpioPulse( &gpioPinRelOn );
   }
 
@@ -388,9 +393,13 @@ void gpioInit( void ){
   gpioPinSetup( &gpioPinRelEn );
   gpioPinSetup( &gpioPinRelOn );
 
+  gpioPinSetup( &gpioPinTest );
+
+  pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();
 
   // ----------- TIMERS ---------------------------
+  timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
 //  timerSetup( &pwrOnToutTimer, pwrOnTout, (uintptr_t)NULL);
 //  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
 }

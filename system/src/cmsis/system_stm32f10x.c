@@ -289,11 +289,11 @@ void SystemInit (void)
   *           - If SYSCLK source is PLL, SystemCoreClock will contain the HSE_VALUE(**) 
   *             or HSI_VALUE(*) multiplied by the PLL factors.
   *         
-  *         (*) HSI_VALUE is a constant defined in stm32f1xx.h file (default value
+  *         (*) HSI_VALUE is a constant defined in stm32f10x.h file (default value
   *             8 MHz) but the real value may vary depending on the variations
   *             in voltage and temperature.   
   *    
-  *         (**) HSE_VALUE is a constant defined in stm32f1xx.h file (default value
+  *         (**) HSE_VALUE is a constant defined in stm32f10x.h file (default value
   *              8 MHz or 25 MHz, depedning on the product used), user has to ensure
   *              that HSE_VALUE is same as the real frequency of the crystal used.
   *              Otherwise, this function may have wrong result.

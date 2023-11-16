@@ -55,10 +55,10 @@
 //#define FRST_KEY_TIM_IRQn     TIM8_UP_TIM13_IRQn
 //#define FRST_KEY_TIM_IRQH     TIM8_UP_TIM13_IRQHandler
 
-#define REL_PULSE_TIM            TIM3
-#define REL_PULSE_TIM_CLK_EN     RCC_APB1ENR_TIM3EN
-#define REL_PULSE_TIM_IRQn       TIM3_IRQn
-#define REL_PULSE_TIM_IRQH       TIM3_IRQHandler
+#define REL_PULSE_TIM            TIM2
+#define REL_PULSE_TIM_CLK_EN     RCC_APB1ENR_TIM2EN
+#define REL_PULSE_TIM_IRQn       TIM2_IRQn
+#define REL_PULSE_TIM_IRQH       TIM2_IRQHandler
 
 /* Перечеслитель состояний ВЫКЛ/НЕОПРЕДЕЛЕННОЕ/ВЫКЛ */
 typedef enum {
@@ -248,6 +248,8 @@ extern eMcuState measurState;
 
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
+extern sGpioPin gpioPinZoom;
+extern sGpioPin gpioPinTest;
 
 // ------------------- LEDS -----------------------
 // Определено в led.c
@@ -274,6 +276,7 @@ extern sGpioPin gpioPinRelOn;
 //
 /** Структура дескриптора таймера таймаута Старта/Стопа INTEL. */
 //extern struct timer_list  pwrBtnOutTimer;
+extern struct timer_list  measOnCanTimer;
 
 
 // ===========================================================================================================
