@@ -14,12 +14,9 @@
 #include "statefunc.h"
 #include "usb_vcp.h"
 
-#define TALLOC_ARRAY_SIZE   4096
+#define TALLOC_ARRAY_SIZE   8192
 
-uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
-
-uint8_t tmpBuff[] = "<USB alco probe>\n<Probe2>";
-uint32_t tmpTout;
+//uint8_t tallocArray[TALLOC_ARRAY_SIZE] __aligned(4);
 
 static inline void stateProcess( void );
 
@@ -35,7 +32,7 @@ int main(int argc, char* argv[]) {
 	(void)argv;
 
   // Tiny memory allocated init
-  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
+//  ta_init( tallocArray, tallocArray+TALLOC_ARRAY_SIZE, 256, 16, sizeof(int) );
 
   /*
    *  Инициализация периферии.
@@ -49,7 +46,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef DEBUG
-  trace_puts("Hello! Medic!");
+  trace_puts("\nHello! Medic!");
 #endif
   /* Инициализация интерфейсов. */
 //  mDelay( 100 );
@@ -69,8 +66,6 @@ int main(int argc, char* argv[]) {
 #ifdef DEBUG
   trace_puts("ALKO Run");
 #endif
-
-  tmpTout = mTick + 1000;
 
   // Infinite loop
   while (1) {
@@ -92,6 +87,9 @@ static inline void stateProcess( void ){
 //      break;
     case MEASST_START_PROB:
       stateStart();
+      break;
+    case MEASST_FLOW_PROB:
+      stateFlow();
       break;
     case MEASST_END_PROB:
       stateEnd();
@@ -145,7 +143,9 @@ static void swoCfg( uint32_t cpuCoreFreqHz ) {
 
     // PB3
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
-    GPIOB->CRL |= (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | GPIO_MODE_AFPP_50;
+    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+    GPIOB->CRL = (GPIOB->CRL & ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3)) | (((uint32_t)GPIO_MODE_AFPP_50) << (3*4));
+    AFIO->MAPR = (AFIO->MAPR & ~AFIO_MAPR_SWJ_CFG) | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
     DBGMCU->CR |= DBGMCU_CR_TRACE_IOEN; // Enable IO trace pins
 
     if (!(DBGMCU->CR & DBGMCU_CR_TRACE_IOEN))

@@ -475,7 +475,7 @@ void usbInit( void )   {
   USB_ADDR2_TX  = USB_TX2_BASE;         /*Endpoint 2 transmission buffer initial address in PMA.*/
   USB_COUNT2_TX = 0x0008;             /*Endpoint 2 transmission buffer lenght 8 byte.*/
   USB_ADDR2_RX  = USB_RX2_BASE;         /*Endpoint 2 reception buffer initial address in PMA.*/
-  USB_COUNT2_RX = 0x1000;             /*Endpoint 2 recetpion buffer block size = 2 byte, number of blocks = 4. Total dimension 8 byte.*/    \
+  USB_COUNT2_RX = 0x1000;             /*Endpoint 2 recetpion buffer block size = 2 byte, number of blocks = 4. Total dimension 8 byte.*/
   USB_CNTR    = 0x0003;             /*USB Interrupt OFF. USB Transceiver OFF. RESET ON.*/
   USB_CNTR    = 0x0001;             /*USB Interrupt OFF. USB Transceiver ON. RESET ON*/
   for(wait=0;wait<30;wait++) {}         /*Wait Tsetup = 2.5 us.*/

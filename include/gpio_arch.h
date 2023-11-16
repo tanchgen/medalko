@@ -249,6 +249,7 @@ extern eMcuState measurState;
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
 extern sGpioPin gpioPinZoom;
+extern sGpioPin gpioPinTest;
 
 // ------------------- LEDS -----------------------
 // Определено в led.c

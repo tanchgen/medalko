@@ -29,9 +29,9 @@ sAdcHandle adcHandle = {
   .learnFlag = SET,
 };
 
-sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 
 #define ADC_KPARAM_0    (4096UL)   // Делитель для VBAT: 10/20
@@ -63,7 +63,7 @@ inline void movAvgU( uint16_t *avg, uint32_t pt ){
 }
 
 // Расчет скользящего среднего беззнакового
-inline void movAvgS( int16_t *avg, int32_t pt ){
+static inline void movAvgS( int16_t *avg, int32_t pt ){
   const int32_t a = 2000 / (1+ ADC_AVRG_IDX);
   int32_t tmp = *avg;
   *avg = (int16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
@@ -137,7 +137,7 @@ void adcInit(void){
 //  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
-  ADC1->SMPR1 = ADC_SMPR1_SMP17_1;
+  ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
   ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 //  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
@@ -221,6 +221,7 @@ void adcPrmInit( sAdcData * prm ){
 
 
 void adcStart( void ){
+
   // Вкл тактирование АЦП
 
   // Опять включаем АЦП после калибровки
@@ -321,6 +322,8 @@ void adcProcess( uintptr_t arg ){
     return;
   }
 
+  gpioPinTest.gpio->BSRR = gpioPinTest.pin;
+
   adcHandle.adcOk = RESET;
 
   for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
@@ -351,9 +354,25 @@ void adcProcess( uintptr_t arg ){
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
           prm = pData->prm;
           movAvgS( (int16_t *)&prm, tmpprm );
+#if !SIMUL
           pData->prm = prm;
-          adcHandle.pressCount++;
-          pressProc( pData->prm, adcHandle.pressCount );
+#else // SIMUL
+          if( pData->prm == 0 ){
+            pData->prm = prm;
+          }
+          else if( mTick > 3000 ){
+            if( mTick < 7000 ){
+              if(pData->prm < 300 ) {
+                pData->prm += 5;
+              }
+            }
+            else if( pData->prm > 100 ){
+              pData->prm -= 1;
+            }
+          }
+#endif // SIMUL
+          pressProc( pData->prm, &adcHandle.pressCount );
+
         }
         break;
       case ADC_PRM_TERM: {
@@ -366,7 +385,16 @@ void adcProcess( uintptr_t arg ){
       }
       case ADC_PRM_ALCO:      // Просто напряжение
         // Вычисляем напряжение
+#if !SIMUL
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+#else // SIMUL
+        if( measDev.status.measStart == RESET ){
+          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+        }
+        else {
+          adcHandle.adcData[i].prm -= 4;
+        }
+#endif // SIMUL
         alcoProc( adcHandle.adcData[i].prm );
         break;
       default:
@@ -380,6 +408,8 @@ void adcProcess( uintptr_t arg ){
   }
 
   totalProc();
+
+  gpioPinTest.gpio->BRR = gpioPinTest.pin;
 }
 
 ///**

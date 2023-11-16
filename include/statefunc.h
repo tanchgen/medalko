@@ -32,6 +32,7 @@ void stateOff( void );
   * @retval none
   */
 void stateStart( void );
+void stateFlow( void );
 void stateEnd( void );
 void stateProc( void );
 void stateFin( void );

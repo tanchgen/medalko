@@ -14,13 +14,14 @@
 #define MEAS_TIME_MAX     3000
 #define MEAS_TIME_MIN     1000
 
-#define MEAS_SEQ_NUM_MAX  500
+#define MEAS_SEQ_NUM_MAX  1000
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
 typedef enum _eMesState {
   MEASST_OFF,
 //  MEASST_REL_EN,
   MEASST_START_PROB,
+  MEASST_FLOW_PROB,
   MEASST_END_PROB,
   MEASST_PROC,
   MEASST_FIN,
@@ -68,6 +69,7 @@ typedef struct _sMeasur {
   uint32_t secs;
   uint32_t msec;
 
+  uint32_t tout0;
   uint32_t tout;
   uint32_t count;
 
@@ -80,7 +82,7 @@ typedef struct _sMeasur {
   uint32_t secsStop;
   uint32_t msecStop;
 
-  sAlcoData * alcoData;       // Указатель на массив собранных данных
+  sAlcoData alcoData[MEAS_SEQ_NUM_MAX];       // Указатель на массив собранных данных
   uint32_t dataNum;           // Количество собранных данных
 
   uint32_t relPulse;
@@ -115,7 +117,7 @@ extern FlagStatus onCan;
 
 uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base);
 
-void pressProc( int32_t press, uint16_t count );
+void pressProc( int32_t press, uint16_t * count );
 void alcoProc( int32_t alco );
 void termProc( int32_t term );
 void totalProc( void );

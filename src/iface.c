@@ -5,6 +5,7 @@
 void gpioInit( void );
 void adcMainInit( void );
 void usbInit( void );
+void measInit( void );
 
 void gpioEnable( void );
 void adcMainEnable( void );
@@ -31,6 +32,7 @@ void ifaceEnable( void ){
 void ifaceInit( void ){
   gpioInit();
   adcMainInit();
+  measInit();
   usbInit();
 }
 

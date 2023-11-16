@@ -7,9 +7,11 @@
 #include "measur.h"
 #include "gpio_arch.h"
 
-sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_PULLDOWN, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+
+sGpioPin gpioPinTest = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 FlagStatus relOnSet;
 uint8_t relOnCount;
@@ -348,12 +350,12 @@ void gpioClock( void ){
     measDev.tout = mTick + measDev.relPulse;
     // Отключаем источник питания от соленоида
     gpioPinResetNow( &gpioPinRelEn );
-//    gpioPulse( &gpioPinRelOn );
+    gpioPulse( &gpioPinRelOn );
     measDev.status.relStart = RESET;
   }
   else if( measDev.status.relEnd ){
     measDev.tout = mTick + measDev.relPulse;
-//    gpioPulse( &gpioPinRelOn );
+    gpioPulse( &gpioPinRelOn );
   }
 
 }
@@ -390,6 +392,8 @@ void gpioInit( void ){
 
   gpioPinSetup( &gpioPinRelEn );
   gpioPinSetup( &gpioPinRelOn );
+
+  gpioPinSetup( &gpioPinTest );
 
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();
