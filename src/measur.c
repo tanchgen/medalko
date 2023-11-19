@@ -190,7 +190,7 @@ void measClock( void ){
         measState = MEASST_FAULT;
       }
       else {
-        sendTout += USB_SEND_TOUT;
+        sendTout = mTick + USB_SEND_TOUT;
       }
     }
 
@@ -224,20 +224,21 @@ void measClock( void ){
       }
 
       if( size != 0 ){
+#ifdef TRACE
         trace_write( (char*)sendBuf, size );
         trace_write("\n", 1);
-
-        assert_param( size <= 96 );
-#if !SIMUL
-        Write_VCP( sendBuf, size );
-#else
-        N_JUMBO_SUBPACKETS = 0;
         tmpTout = mTick + 10;
+#endif // TRACE
+        assert_param( size <= 96 );
+#if USB_SIMUL
+        N_JUMBO_SUBPACKETS = 0;
+#else
+        Write_VCP( sendBuf, size );
 #endif // SIMUL
         sendTout = mTick + USB_SEND_TOUT;
       }
       else {
-        assert_param( sendState <= SEND_FIN );
+        assert_param( sendState > SEND_END );
       }
     }
   }

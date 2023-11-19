@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
 
   ifaceEnable();
 
-  mDelay(5000);
+  mDelay(INIT_TOUT);
 #ifdef DEBUG
   trace_puts("ALKO Run");
 #endif

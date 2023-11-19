@@ -325,7 +325,7 @@ EXTI->PR = pin;
   */
 void gpioPulse( sGpioPin * pin ){
   if( pin == &gpioPinRelOn ){
-    gpioPinSetNow( pin );
+//    gpioPinSetNow( pin );
     REL_PULSE_TIM->EGR = TIM_EGR_UG;
     REL_PULSE_TIM->CR1 |= TIM_CR1_CEN;
     measDev.status.relStart = RESET;

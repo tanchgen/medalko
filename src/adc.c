@@ -19,7 +19,11 @@
 #define B25_100     3944
 #define _1_298K     0.0033557   // Обратная величина от (25 + 273)гр.Ц
 
-//s#define PRESS_NUL   1250        // Напряжение нулевого давления
+//#define PRESS_NUL   1250        // Напряжение нулевого давления
+
+#if SIMUL
+  uint32_t simulStart = 3000 + INIT_TOUT;
+#endif // SIMUL
 
 /** Структура дескриптора модуля АЦП: Бат. CMOS (Bat_CMOS, vbat) */
 sAdcHandle adcHandle = {
@@ -357,17 +361,21 @@ void adcProcess( uintptr_t arg ){
 #if !SIMUL
           pData->prm = prm;
 #else // SIMUL
-          if( pData->prm == 0 ){
-            pData->prm = prm;
-          }
-          else if( mTick > 3000 ){
-            if( mTick < 7000 ){
+//          if( pData->prm == 0 ){
+//            pData->prm = prm;
+//          }
+//          else
+          if( mTick > (simulStart) ){
+            if( mTick < (simulStart + 4000) ){
               if(pData->prm < 300 ) {
                 pData->prm += 5;
               }
             }
-            else if( pData->prm > 100 ){
+            else if( pData->prm > 0 ){
               pData->prm -= 1;
+            }
+            else {
+              simulStart = mTick + 2000;
             }
           }
 #endif // SIMUL
@@ -389,7 +397,8 @@ void adcProcess( uintptr_t arg ){
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
 #else // SIMUL
         if( measDev.status.measStart == RESET ){
-          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+//          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+          adcHandle.adcData[i].prm = 1500;
         }
         else {
           adcHandle.adcData[i].prm -= 4;

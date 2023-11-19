@@ -3,6 +3,12 @@
 
 #include "stdint.h"
 
+#if SIMUL
+#define USB_SIMUL     0
+#else
+#define USB_SIMUL     0
+#endif // SIMUL
+
 //Registers definitions.
 
 #define USB_CNTR 		(*(volatile uint32_t*)(0x40005C40))
