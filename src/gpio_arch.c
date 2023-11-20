@@ -7,6 +7,10 @@
 #include "measur.h"
 #include "gpio_arch.h"
 
+#if SIMUL
+  extern uint32_t simulStart;
+#endif // SIMUL
+
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
@@ -47,6 +51,9 @@ static void measOnCan(uintptr_t arg){
   (void)arg;
   // Система выключена полностью и готова к повторному включению
   onCan = SET;
+#if SIMUL
+  simulStart = mTick + 2000;
+#endif // SIMUL
 }
 
 
@@ -353,10 +360,10 @@ void gpioClock( void ){
     gpioPulse( &gpioPinRelOn );
     measDev.status.relStart = RESET;
   }
-  else if( measDev.status.relEnd ){
-    measDev.tout = mTick + measDev.relPulse;
-    gpioPulse( &gpioPinRelOn );
-  }
+//  else if( measDev.status.relEnd ){
+//    measDev.tout = mTick + measDev.relPulse;
+//    gpioPulse( &gpioPinRelOn );
+//  }
 
 }
 

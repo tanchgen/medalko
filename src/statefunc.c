@@ -64,7 +64,7 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
-    gpioPinSet( &gpioPinRelEn );
+    gpioPinSetNow( &gpioPinRelEn );
     zoomOn();
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
@@ -74,6 +74,11 @@ inline void stateOff( void ){
   }
   else {
     if( measRunWait == MSTATE_NON ){
+#if SIMUL
+      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 0 ){
+        return;
+      }
+#endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1500 );
       measRunWait = MSTATE_OFF;
     }
@@ -108,6 +113,7 @@ inline void stateStart( void ){
         break;
       case MSTATE_ON:
         if( measDev.status.relEnd ){
+          measDev.status.relEnd = RESET;
           measDev.secsStart2 = secs;
           measDev.msecStart2 = msecs;
 #if DEBUG_TRACE_RUN
@@ -222,6 +228,7 @@ inline void stateFin( void ){
     zoomOff();
     measRunWait = MSTATE_NON;
     measState = MEASST_OFF;
+    measRun = RESET;
 #if DEBUG_TRACE_RUN
     trace_puts(":Meas fin");
 #endif
@@ -257,7 +264,7 @@ inline void stateFault( void ){
           measDev.tout = mTick + 300;
           measRunWait = MSTATE_ON_OK;
 #if DEBUG_TRACE_RUN
-          trace_printf(":Fault on %d", measDev.count );
+          trace_printf(":Fault on %d\n", measDev.count );
 #endif
         }
         break;

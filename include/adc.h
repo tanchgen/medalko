@@ -61,7 +61,7 @@
 
 
 
-#define ADC_AVRG_IDX      5
+#define ADC_AVRG_IDX      10
 
 typedef enum {
   ADC_PRM_VDD,

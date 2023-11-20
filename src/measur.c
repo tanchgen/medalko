@@ -25,7 +25,7 @@ uint8_t sendBuf[96];
 uint32_t tmpTout = 0;
 
 const uint16_t measPressLimMin = 90;
-const float measPressLimMax = 2000;
+const float measPressLimMax = 300;
 const float measAlkoLimMin = 100.0;
 
 sMeasur measDev;
@@ -39,7 +39,7 @@ int32_t pressAvg;
 size_t sendTmPrep( uint8_t * buf ){
   size_t sz = 0;
 
-  sz = sprintf( (char*)buf, "\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":{", \
+  sz = sprintf( (char*)buf, "{\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":[", \
                 measDev.secsStart, measDev.msecStart, measDev.secsStart2, measDev.msecStart2 );
   return sz;
 }
@@ -68,7 +68,7 @@ size_t sendTmEnd( uint8_t * buf ){
   uint32_t sz = 0;
 
   // Закрывающие скобки
-  sz = sprintf( (char*)buf, "},\"stopTime\":%ld.%ld}", measDev.secsStop, measDev.msecStop );
+  sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}}", measDev.secsStop, measDev.msecStop );
 
   return sz;
 }
@@ -96,7 +96,7 @@ void pressProc( int32_t press, uint16_t * count ){
         measDev.tout0 = mTick;
       }
   }
-  else {
+  else if( measState < MEASST_END_PROB ){
     if( press < measPressLimMin ){
       if( measDev.status.pressFaultLow == RESET ){
         measDev.status.pressFaultLow = SET;
@@ -176,17 +176,18 @@ void measClock( void ){
 
 #define USB_SEND_TOUT         5000
 
-#if SIMUL
+#ifdef TRACE
   if( tmpTout > mTick ){
     return;
   }
-#endif // SIMUL
+#endif // defined(TRACE)
 
   if( measDev.status.sendStart ){
     if( sendTout && (sendTout <= mTick) ){
       if( ++errCount == 2 ){
         // Неудалось отправить
         measDev.status.sendStart = RESET;
+        sendState = SEND_START;
         measState = MEASST_FAULT;
       }
       else {
@@ -214,11 +215,9 @@ void measClock( void ){
           size = 0;
           measDev.status.sendStart = RESET;
           measDev.status.sent = SET;
-          sendState++;
           break;
         default:
           size = 0;
-          sendTout = 0;
           break;
 
       }
@@ -238,7 +237,10 @@ void measClock( void ){
         sendTout = mTick + USB_SEND_TOUT;
       }
       else {
-        assert_param( sendState > SEND_END );
+        assert_param( sendState == SEND_END );
+        sendState = SEND_START;
+        sendCount = 0;
+        sendTout = 0;
       }
     }
   }

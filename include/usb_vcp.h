@@ -4,7 +4,7 @@
 #include "stdint.h"
 
 #if SIMUL
-#define USB_SIMUL     0
+#define USB_SIMUL     1
 #else
 #define USB_SIMUL     0
 #endif // SIMUL

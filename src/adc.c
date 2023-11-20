@@ -371,11 +371,13 @@ void adcProcess( uintptr_t arg ){
                 pData->prm += 5;
               }
             }
-            else if( pData->prm > 0 ){
-              pData->prm -= 1;
+            else if( (measState != MEASST_OFF) && (measState < MEASST_END_PROB) ){
+              if(pData->prm > 100 ){
+                pData->prm -= 1;
+              }
             }
-            else {
-              simulStart = mTick + 2000;
+            else if(pData->prm > 0 ){
+              pData->prm -= 1;
             }
           }
 #endif // SIMUL
