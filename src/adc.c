@@ -59,6 +59,8 @@ void adcStart( void );
 //
 
 
+#if PRESS_AVG  || ALCO_AVG
+
 // Расчет скользящего среднего беззнакового
 inline void movAvgU( uint16_t *avg, uint32_t pt ){
   const uint32_t a = 2000 / (1+ ADC_AVRG_IDX);
@@ -72,6 +74,7 @@ static inline void movAvgS( int16_t *avg, int32_t pt ){
   int32_t tmp = *avg;
   *avg = (int16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
 }
+#endif //PRESS_AVG  || ALCO_AVG
 
 
 //inline void adcDataReset( sAdcHandle * adc, eAdcPrm num ){
@@ -353,11 +356,17 @@ void adcProcess( uintptr_t arg ){
 //          }
         }
         else {
-          int32_t tmpprm;
           int16_t prm;
+#if PRESS_AVG
+          int32_t tmpprm;
+
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
           prm = pData->prm;
           movAvgS( (int16_t *)&prm, tmpprm );
+          prm = tmpprm;
+#else //PRESS_AVG  || ALCO_AVG
+          prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
+#endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
           pData->prm = prm;
 #else // SIMUL
