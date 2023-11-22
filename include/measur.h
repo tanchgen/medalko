@@ -17,13 +17,19 @@
 #define MEAS_SEQ_NUM_MAX  1000
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
+
+typedef enum {
+  PROTO_JSON,
+  PROTO_CSV,
+} eSendProto;
+
 typedef enum _eMesState {
   MEASST_OFF,
 //  MEASST_REL_EN,
   MEASST_START_PROB,
   MEASST_FLOW_PROB,
   MEASST_END_PROB,
-  MEASST_PROC,
+//  MEASST_PROC,
   MEASST_FIN,
   MEASST_FAULT,
 } eMeasState;
@@ -84,6 +90,7 @@ typedef struct _sMeasur {
 
   sAlcoData alcoData[MEAS_SEQ_NUM_MAX];       // Указатель на массив собранных данных
   uint32_t dataNum;           // Количество собранных данных
+  eSendProto sendProto;
 
   uint32_t relPulse;
 

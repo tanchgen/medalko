@@ -64,7 +64,7 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
-    gpioPinSetNow( &gpioPinRelEn );
+//    gpioPinSetNow( &gpioPinRelEn );
     zoomOn();
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
@@ -80,6 +80,7 @@ inline void stateOff( void ){
       }
 #endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1500 );
+      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
     }
   }
@@ -108,16 +109,25 @@ inline void stateStart( void ){
           trace_printf(":Solenoid start\n");
           // Запуск замеров
           measDev.status.measStart = SET;
-          measRunWait = MSTATE_ON;
+          measRunWait = MSTATE_NON_2;
         }
         break;
-      case MSTATE_ON:
+      case MSTATE_NON_2:
         if( measDev.status.relEnd ){
           measDev.status.relEnd = RESET;
           measDev.secsStart2 = secs;
           measDev.msecStart2 = msecs;
 #if DEBUG_TRACE_RUN
-          trace_printf(":Solenoid stop - Meas start\n");
+          trace_printf(":Solenoid stop\n");
+#endif
+        }
+        measRunWait = MSTATE_ON;
+        break;
+      case MSTATE_ON:
+        if( measDev.status.alcoHi ){
+          measDev.status.measStart = SET;
+#if DEBUG_TRACE_RUN
+          trace_printf(":Meas start\n");
 #endif
           measRunWait = MSTATE_NON;
           measState++;
@@ -194,25 +204,22 @@ inline void stateEnd( void ){
   *
   * @retval none
   */
-inline void stateProc( void ){
-  //    case MEASST_PROC:  // Данные
-  if( measRun == SET ){
-    switch( measRunWait ){
-      case MSTATE_NON:
-#if DEBUG_TRACE_RUN
-        trace_puts(":Meas data sent");
-#endif
-        measRunWait = MSTATE_ON;
-        break;
-      case MSTATE_ON:
-        measRunWait = MSTATE_NON;
-        measState = MEASST_FIN;
-        break;
-      default:
-        break;
-    }
-  }
-}
+//inline void stateProc( void ){
+//  //    case MEASST_PROC:  // Данные
+//  if( measRun == SET ){
+//    switch( measRunWait ){
+//      case MSTATE_NON:
+//#if DEBUG_TRACE_RUN
+//        trace_puts(":Meas data sent");
+//#endif
+//        measRunWait = MSTATE_NON;
+//        measState = MEASST_FIN;
+//        break;
+//      default:
+//        break;
+//    }
+//  }
+//}
 
 
 /**
@@ -225,13 +232,13 @@ inline void stateProc( void ){
 inline void stateFin( void ){
   //    case MEASST_FIN
   if( measRun == SET ){
+#if DEBUG_TRACE_RUN
+    trace_puts(":Meas data sent - fin");
+#endif
     zoomOff();
     measRunWait = MSTATE_NON;
     measState = MEASST_OFF;
     measRun = RESET;
-#if DEBUG_TRACE_RUN
-    trace_puts(":Meas fin");
-#endif
   }
 }
 

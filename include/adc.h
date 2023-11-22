@@ -60,8 +60,12 @@
 
 
 
+#define PRESS_AVG         0
+#define ALCO_AVG         0
 
+#if PRESS_AVG  || ALCO_AVG
 #define ADC_AVRG_IDX      10
+#endif //PRESS_AVG  || ALCO_AVG
 
 typedef enum {
   ADC_PRM_VDD,
