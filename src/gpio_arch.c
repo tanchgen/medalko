@@ -305,7 +305,7 @@ void zoomTimInit( void ){
 
 
 void zoomOn( void ){
-//  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
+  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
 }
 
 void zoomOff( void ){
@@ -332,7 +332,7 @@ EXTI->PR = pin;
   */
 void gpioPulse( sGpioPin * pin ){
   if( pin == &gpioPinRelOn ){
-//    gpioPinSetNow( pin );
+    gpioPinSetNow( pin );
     REL_PULSE_TIM->EGR = TIM_EGR_UG;
     REL_PULSE_TIM->CR1 |= TIM_CR1_CEN;
     measDev.status.relStart = RESET;
@@ -379,9 +379,8 @@ void gpioEnable( void ) {
   trace_puts("Function: Enable FPGA");
 #endif
 
-  // Включаем прерывания для кнопки PS_SRST
-//  EXTI->IMR |= extiPinRstKey.pin;
   timerMod( &measOnCanTimer, TOUT_1500 );
+  gpioPinSetNow( &gpioPinRelEn );
 }
 
 /**

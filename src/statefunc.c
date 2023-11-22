@@ -64,7 +64,6 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
-    gpioPinSetNow( &gpioPinRelEn );
     zoomOn();
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
@@ -79,7 +78,8 @@ inline void stateOff( void ){
         return;
       }
 #endif // SIMUL
-      timerMod( &measOnCanTimer, TOUT_1500 );
+      timerMod( &measOnCanTimer, TOUT_2000 );
+      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
     }
   }
