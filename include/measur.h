@@ -14,7 +14,7 @@
 #define MEAS_TIME_MAX     3000
 #define MEAS_TIME_MIN     1000
 
-#define MEAS_SEQ_NUM_MAX  1000
+#define MEAS_SEQ_NUM_MAX  1024
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
 
@@ -36,9 +36,10 @@ typedef enum _eMesState {
 
 typedef enum {
   SEND_START,
-  SEND_CONT,
+  SEND_GOON,
   SEND_FIN,
-  SEND_END
+  SEND_END,
+  SEND_CONT
 } eSendState;
 
 typedef union _sMeasStatus {
@@ -52,6 +53,7 @@ typedef union _sMeasStatus {
     uint32_t relEnd: 1;
     uint32_t sendStart: 1;
     uint32_t sent: 1;
+    uint32_t cont: 1;         // Флаг постоянной передачи
   };
   uint32_t u32stat;
 } uMeasStatus;
@@ -65,10 +67,10 @@ typedef struct {
 } sPrmDt;
 
 typedef struct _sAlcoData {
-  int32_t press;
-  int32_t alco;
-  int32_t temp;
-} sAlcoData;
+  int16_t press;
+  int16_t alco;
+  int16_t temp;
+} sMeasRec;
 
 typedef struct _sMeasur {
   uMeasStatus status;
@@ -88,8 +90,8 @@ typedef struct _sMeasur {
   uint32_t secsStop;
   uint32_t msecStop;
 
-  sAlcoData alcoData[MEAS_SEQ_NUM_MAX];       // Указатель на массив собранных данных
-  uint32_t dataNum;           // Количество собранных данных
+  sMeasRec alcoData;       // Указатель на массив собранных данных
+//  uint32_t dataNum;           // Количество собранных данных
   eSendProto sendProto;
 
   uint32_t relPulse;

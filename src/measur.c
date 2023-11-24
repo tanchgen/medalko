@@ -11,6 +11,7 @@
 #include "times.h"
 #include "usb_vcp.h"
 #include "statefunc.h"
+#include "buffer.meas.h"
 #include "measur.h"
 
 eMeasState measState = MEASST_OFF;
@@ -21,6 +22,7 @@ FlagStatus onCan;
 uint32_t sendTout;
 uint32_t sendCount;
 eSendState sendState;
+
 uint8_t sendBuf[96];
 
 uint32_t tmpTout = 0;
@@ -52,10 +54,18 @@ size_t sendTmPrep( uint8_t * buf ){
 }
 
 size_t sendTmCont( uint8_t * buf ){
-  uint32_t i = sendCount;
+//  uint32_t i = sendCount;
   uint32_t sz = 0;
+  sMeasRec rec;
 
-  if( i < measDev.dataNum ){
+  if( measBuf_Read( &measBuf, &rec, 1 ) != 0 ){
+#ifdef  USE_FULL_ASSERT
+    if( measDev.status.cont ){
+      assert_param( measDev.sendProto == PROTO_JSON );
+      assert_param( sendCount == 0 );
+    }
+#endif // USE_FULL_ASSERT
+
     if( measDev.sendProto == PROTO_JSON ){
       if( sendCount ){
         // Не первая запись - добавим запяту, разделяющую записи
@@ -63,10 +73,10 @@ size_t sendTmCont( uint8_t * buf ){
         sz = 1;
       }
       // Давление
-      sz += sprintf( (char*)buf, "%ld,\"alco\":%ld, \"temp\":%ld}", \
-                      measDev.alcoData[i].press,
-                      measDev.alcoData[i].alco,
-                      measDev.alcoData[i].temp );
+      sz += sprintf( (char*)buf, "{\"press\":%d,\"alco\":%d, \"temp\":%d}\n", \
+                      rec.press,
+                      rec.alco,
+                      rec.temp );
     }
     else {
       if( sendCount == 0 ){
@@ -78,10 +88,10 @@ size_t sendTmCont( uint8_t * buf ){
         memcpy( (char*)buf, "0.0,0.0,", 8 );
         sz = 8;
       }
-      sz += sprintf( ((char*)buf + sz), "%ld,%ld,%ld,", \
-                      measDev.alcoData[i].press,
-                      measDev.alcoData[i].alco,
-                      measDev.alcoData[i].temp );
+      sz += sprintf( ((char*)buf + sz), "%d,%d,%d,", \
+                      rec.press,
+                      rec.alco,
+                      rec.temp );
       if( sendCount == 0 ){
         sz += sprintf( ((char*)buf + sz), "%ld.%ld\n", \
                         measDev.secsStop,
@@ -102,7 +112,7 @@ size_t sendTmEnd( uint8_t * buf ){
 
   // Закрывающие скобки
   if( measDev.sendProto == PROTO_JSON ){
-    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}}", measDev.secsStop, measDev.msecStop );
+    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}\n}\n", measDev.secsStop, measDev.msecStop );
   }
   else {
     sz = 0;
@@ -145,7 +155,7 @@ void pressProc( int32_t press, uint16_t * count ){
     else {
       if( measDev.status.measStart ){
         // Забор проб: созраняем полученое значение
-        measDev.alcoData[measDev.dataNum].press = press;
+        measDev.alcoData.press = press;
       }
       else {
         if (measState == MEASST_START_PROB ){
@@ -177,7 +187,7 @@ void pressProc( int32_t press, uint16_t * count ){
 void termProc( int32_t term ){
   if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
-    measDev.alcoData[measDev.dataNum].temp = term;
+    measDev.alcoData.temp = term;
   }
 }
 
@@ -186,7 +196,7 @@ void termProc( int32_t term ){
 void alcoProc( int32_t alco ){
   if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
-    measDev.alcoData[measDev.dataNum].alco = alco;
+    measDev.alcoData.alco = alco;
     if( alco < measAlkoLimMin ){
       // Значение ALCO упало ниже порога - будем завершать данный цикл
       measDev.status.alcoLow = SET;
@@ -202,7 +212,9 @@ void alcoProc( int32_t alco ){
 void totalProc( void ){
   if( measDev.status.measStart ){
     // Все данные сохранили
-    measDev.dataNum++;
+    if( measBuf_Write( &measBuf, &measDev.alcoData, 1 ) == 0 ){
+      trace_puts("\t=== Buffer if FULL ===");
+    }
   }
 }
 
@@ -225,6 +237,7 @@ void measClock( void ){
       if( ++errCount == 2 ){
         // Неудалось отправить
         measDev.status.sendStart = RESET;
+        measDev.status.cont = RESET;
         sendState = SEND_START;
         measState = MEASST_FAULT;
       }
@@ -239,11 +252,11 @@ void measClock( void ){
           size = sendTmPrep( sendBuf );
           sendState++;
           break;
-        case SEND_CONT:
-          size = sendTmCont( sendBuf );
-          if( ++sendCount == measDev.dataNum ){
+        case SEND_GOON:
+          if( (size = sendTmCont( sendBuf )) == 0){
             sendState++;
           }
+          sendCount++;
           break;
         case SEND_FIN:
           size = sendTmEnd( sendBuf );
@@ -254,6 +267,9 @@ void measClock( void ){
           measDev.status.sendStart = RESET;
           measDev.status.sent = SET;
           break;
+        case SEND_CONT:
+          size = sendTmCont( sendBuf );
+          break;
         default:
           size = 0;
           break;
@@ -263,7 +279,6 @@ void measClock( void ){
       if( size != 0 ){
 #ifdef TRACE
         trace_write( (char*)sendBuf, size );
-        trace_write("\n", 1);
         tmpTout = mTick + 10;
 #endif // TRACE
         assert_param( size <= 96 );
@@ -274,19 +289,24 @@ void measClock( void ){
 #endif // SIMUL
         sendTout = mTick + USB_SEND_TOUT;
       }
-      else {
-        assert_param( sendState == SEND_END );
+      else if ( sendState == SEND_END ){
         sendState = SEND_START;
         sendCount = 0;
         sendTout = 0;
       }
     }
   }
+
+  // Прием сообщений
+
+//  else if( measDev.status.cont ){
+//    measDev.status.sendStart = SET;
+//  }
+
 }
 
 
 void measStartClean( void ){
-  measDev.dataNum = 0;
   measDev.status.u32stat = 0;
 }
 
@@ -299,5 +319,5 @@ void measInit( void ){
 //  }
 //  measDev.alcoData = tmpAd;
   measDev.relPulse = REL_PULSE_DEF;
-
+  measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
 }
