@@ -34,7 +34,7 @@ void stateOff( void );
 void stateStart( void );
 void stateFlow( void );
 void stateEnd( void );
-void stateProc( void );
+//void stateProc( void );
 void stateFin( void );
 void stateFault( void );
 

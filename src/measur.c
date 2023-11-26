@@ -5,6 +5,7 @@
  *      Author: jet
  */
 #include <stdio.h>
+#include <string.h>
 
 #include "tinyalloc.h"
 #include "times.h"
@@ -26,7 +27,7 @@ uint32_t tmpTout = 0;
 
 const uint16_t measPressLimMin = 90;
 const float measPressLimMax = 300;
-const float measAlkoLimMin = 100.0;
+const float measAlkoLimMin = 15.0;
 
 sMeasur measDev;
 // Определяем начальный таймаут до начала забора проб
@@ -39,8 +40,14 @@ int32_t pressAvg;
 size_t sendTmPrep( uint8_t * buf ){
   size_t sz = 0;
 
-  sz = sprintf( (char*)buf, "{\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":[", \
-                measDev.secsStart, measDev.msecStart, measDev.secsStart2, measDev.msecStart2 );
+  if( measDev.sendProto == PROTO_JSON ){
+    sz = sprintf( (char*)buf, "{\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":[", \
+                  measDev.secsStart, measDev.msecStart, measDev.secsStart2, measDev.msecStart2 );
+  }
+  else {
+    memcpy( (char*)buf, "\"startTime\",\"start2Time\",\"press\",\"alco\",\"temp\",\"stopTime\"\n", 58 );
+    sz = 58;
+  }
   return sz;
 }
 
@@ -49,26 +56,57 @@ size_t sendTmCont( uint8_t * buf ){
   uint32_t sz = 0;
 
   if( i < measDev.dataNum ){
-    if( sendCount ){
-      // Не первая запись - добавим запяту, разделяющую записи
-      *buf++ = ',';
-      sz = 1;
+    if( measDev.sendProto == PROTO_JSON ){
+      if( sendCount ){
+        // Не первая запись - добавим запяту, разделяющую записи
+        *buf++ = ',';
+        sz = 1;
+      }
+      // Давление
+      sz += sprintf( (char*)buf, "%ld,\"alco\":%ld, \"temp\":%ld}", \
+                      measDev.alcoData[i].press,
+                      measDev.alcoData[i].alco,
+                      measDev.alcoData[i].temp );
     }
-    // Давление
-    sz += sprintf( (char*)buf, "{\"press\":%ld,\"alco\":%ld, \"temp\":%ld}", \
-                    measDev.alcoData[i].press,
-                    measDev.alcoData[i].alco,
-                    measDev.alcoData[i].temp );
+    else {
+      if( sendCount == 0 ){
+        sz = sprintf( (char*)buf, "%ld.%ld,%ld.%ld,", \
+                        measDev.secsStart,measDev.msecStart,
+                        measDev.secsStart2,measDev.secsStart2 );
+      }
+      else {
+        memcpy( (char*)buf, "0.0,0.0,", 8 );
+        sz = 8;
+      }
+      sz += sprintf( ((char*)buf + sz), "%ld,%ld,%ld,", \
+                      measDev.alcoData[i].press,
+                      measDev.alcoData[i].alco,
+                      measDev.alcoData[i].temp );
+      if( sendCount == 0 ){
+        sz += sprintf( ((char*)buf + sz), "%ld.%ld\n", \
+                        measDev.secsStop,
+                        measDev.msecStart );
+      }
+      else {
+        memcpy( ((char*)buf + sz), "0.0\n", 4 );
+        sz += 4;
+      }
+    }
   }
 
   return sz;
 }
 
 size_t sendTmEnd( uint8_t * buf ){
-  uint32_t sz = 0;
+  uint32_t sz;
 
   // Закрывающие скобки
-  sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}}", measDev.secsStop, measDev.msecStop );
+  if( measDev.sendProto == PROTO_JSON ){
+    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}}", measDev.secsStop, measDev.msecStop );
+  }
+  else {
+    sz = 0;
+  }
 
   return sz;
 }
@@ -153,9 +191,9 @@ void alcoProc( int32_t alco ){
       // Значение ALCO упало ниже порога - будем завершать данный цикл
       measDev.status.alcoLow = SET;
     }
-    else {
-      measDev.status.alcoHi = SET;
-    }
+  }
+  else if( alco > measAlkoLimMin ){
+    measDev.status.alcoHi = SET;
   }
 }
 
