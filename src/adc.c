@@ -59,18 +59,20 @@ void adcStart( void );
 //
 
 
-#if PRESS_AVG  || ALCO_AVG
+#if VDD_AVG  || TERM_AVG || ALCO_AVG
 
 // Расчет скользящего среднего беззнакового
-inline void movAvgU( uint16_t *avg, uint32_t pt ){
-  const uint32_t a = 2000 / (1+ ADC_AVRG_IDX);
+static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
+  const uint32_t a = 2000 / (1+ kavg);
   uint32_t tmp = *avg;
   *avg = (uint16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
 }
+#endif //VDD_AVG || TERM_AVG || ALCO_AVG
 
+#if PRESS_AVG  || ALCO_AVG
 // Расчет скользящего среднего беззнакового
-static inline void movAvgS( int16_t *avg, int32_t pt ){
-  const int32_t a = 2000 / (1+ ADC_AVRG_IDX);
+static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
+  const int32_t a = 2000 / (1+ kavg);
   int32_t tmp = *avg;
   *avg = (int16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
 }
@@ -329,7 +331,9 @@ void adcProcess( uintptr_t arg ){
     return;
   }
 
+#if PIN_TEST_EN
   gpioPinTest.gpio->BSRR = gpioPinTest.pin;
+#endif //if PIN_TEST_EN
 
   adcHandle.adcOk = RESET;
 
@@ -337,9 +341,17 @@ void adcProcess( uintptr_t arg ){
     sAdcData * pData = &(adcHandle.adcData[i]);
 
     switch ( i ){
-      case ADC_PRM_VDD:
-        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD]*1000)/VREFINT_VOL));
+      case ADC_PRM_VDD:{
+    	static uint8_t avgcount;
+
+        movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVRG_IDX );
+        if( avgcount < (VDD_AVRG_IDX * 5) ){
+          avgcount++;
+          return;
+        }
+        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.avgVdd * 1000)/VREFINT_VOL));
         break;
+      }
       case ADC_PRM_PRESS:     // Давление Pa = mV
         // Вычисляем напряжение
         if( adcHandle.learnFlag ){
@@ -429,7 +441,9 @@ void adcProcess( uintptr_t arg ){
 
   totalProc();
 
+#if PIN_TEST_EN
   gpioPinTest.gpio->BRR = gpioPinTest.pin;
+#endif //PIN_TEST_EN
 }
 
 ///**

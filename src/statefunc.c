@@ -12,6 +12,7 @@
 #include "adc.h"
 #include "gpio_arch.h"
 #include "measur.h"
+#include "usb_vcp.h"
 #include "statefunc.h"
 
 uint32_t tmptick = -1;
@@ -64,8 +65,8 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
-//    gpioPinSetNow( &gpioPinRelEn );
     zoomOn();
+    assert_param( measDev.status.pressOk == RESET );
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
     measRunWait = MSTATE_NON;
@@ -82,6 +83,9 @@ inline void stateOff( void ){
       timerMod( &measOnCanTimer, TOUT_1500 );
       gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
+#if DEBUG_TRACE_RUN
+      trace_write(":SYS OFF\n", 9);
+#endif
     }
   }
 }
@@ -104,28 +108,30 @@ inline void stateStart( void ){
         if( measDev.tout < mTick ){
           measDev.secsStart = secs;
           measDev.msecStart = msecs;
+          measDev.status.pressOk = SET;
           // Запуск соленоида
           measDev.status.relStart = SET;
+          measDev.rel = SET;
           trace_printf(":Solenoid start\n");
-          // Запуск замеров
-          measDev.status.measStart = SET;
           measRunWait = MSTATE_NON_2;
         }
         break;
       case MSTATE_NON_2:
         if( measDev.status.relEnd ){
-          measDev.status.relEnd = RESET;
           measDev.secsStart2 = secs;
           measDev.msecStart2 = msecs;
 #if DEBUG_TRACE_RUN
           trace_printf(":Solenoid stop\n");
 #endif
+          measDev.tout = mTick + ALCO_TOUT_MIN;
+          measRunWait = MSTATE_ON;
         }
-        measRunWait = MSTATE_ON;
         break;
       case MSTATE_ON:
-        if( measDev.status.alcoHi ){
+        if( measDev.status.alcoHi || (measDev.tout < mTick)){
+          // Alco превысил порог - можно измерять. Или таймаут превышения порога
           measDev.status.measStart = SET;
+          measDev.status.alcoLow = RESET;
 #if DEBUG_TRACE_RUN
           trace_printf(":Meas start\n");
 #endif
@@ -155,6 +161,7 @@ inline void stateFlow( void ){
       measDev.secsStop = secs;
       measDev.msecStop = msecs;
       measDev.status.measStart = RESET;
+      measDev.status.pressOk = RESET;
 #if DEBUG_TRACE_RUN
       trace_printf(":Alko low. Meas stop\n");
 #endif
@@ -177,6 +184,7 @@ inline void stateEnd( void ){
     switch( measRunWait ){
       case MSTATE_NON:
         zoomOff();
+        measDev.status.relEnd = RESET;
         // TODO: Запуск оптавки данных
 #if DEBUG_TRACE_RUN
         trace_printf(":Send start\n");
@@ -236,6 +244,7 @@ inline void stateFin( void ){
     trace_puts(":Meas data sent - fin");
 #endif
     zoomOff();
+    measDev.status.relEnd = RESET;
     measRunWait = MSTATE_NON;
     measState = MEASST_OFF;
     measRun = RESET;

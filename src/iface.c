@@ -30,9 +30,9 @@ void ifaceEnable( void ){
 }
 
 void ifaceInit( void ){
+  measInit();
   gpioInit();
   adcMainInit();
-  measInit();
   usbInit();
 }
 
