@@ -11,6 +11,7 @@
 #include "times.h"
 #include "usb_vcp.h"
 #include "statefunc.h"
+#include "buffer.h"
 #include "buffer.meas.h"
 #include "measur.h"
 
@@ -24,6 +25,7 @@ uint32_t sendCount;
 eSendState sendState;
 
 uint8_t sendBuf[96];
+uint8_t receivBuf[256];
 
 uint32_t tmpTout = 0;
 
@@ -121,8 +123,28 @@ size_t sendTmEnd( uint8_t * buf ){
   return sz;
 }
 
-// ---------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
+// -------------------- Received parcing -----------------------------------------------
+uint8_t * receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
+  uint32_t rxlen;
+  uint32_t i;
 
+  for( i = 0, rxlen = 0; (rxBuf[i] != '\0') && (i < rxSizeMax); i++ ) {
+    if( rxBuf[i] == '}' ){
+      rxlen = i;
+      break;
+    }
+  }
+
+  if(rxlen == 0){
+    return rxBuf + i;
+  }
+
+
+
+  return rxlen;
+}
+// -------------------------------------------------------------------------------------
 
 uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
   uint8_t i = 30;
@@ -298,7 +320,20 @@ void measClock( void ){
   }
 
   // Прием сообщений
+  if( VCP_Received ){
+    uint8_t rxbuf[RX_BUFF_SIZE/4];
+    uint16_t len;
 
+    Read_VCP( rxbuf, &len );
+    if( len ){
+      // Что-то приняли
+      if( buffer_GetFree( &rxBuf ) >= len ){
+        buffer_Write( &rxBuf, rxbuf, len );
+      }
+      while( buffer_ )
+    }
+
+  }
 //  else if( measDev.status.cont ){
 //    measDev.status.sendStart = SET;
 //  }
@@ -320,4 +355,5 @@ void measInit( void ){
 //  measDev.alcoData = tmpAd;
   measDev.relPulse = REL_PULSE_DEF;
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
+  bufffer_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
 }
