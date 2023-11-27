@@ -12,8 +12,8 @@
 #include "usb_vcp.h"
 #include "statefunc.h"
 #include "buffer.h"
-#include "buffer.meas.h"
 #include "measur.h"
+#include "buffer.meas.h"
 
 eMeasState measState = MEASST_OFF;
 FlagStatus measOnNeed = RESET;
@@ -25,7 +25,6 @@ uint32_t sendCount;
 eSendState sendState;
 
 uint8_t sendBuf[96];
-uint8_t receivBuf[256];
 
 uint32_t tmpTout = 0;
 
@@ -125,22 +124,46 @@ size_t sendTmEnd( uint8_t * buf ){
 
 // -------------------------------------------------------------------------------------
 // -------------------- Received parcing -----------------------------------------------
-uint8_t * receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
+uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   uint32_t rxlen;
-  uint32_t i;
 
-  for( i = 0, rxlen = 0; (rxBuf[i] != '\0') && (i < rxSizeMax); i++ ) {
-    if( rxBuf[i] == '}' ){
-      rxlen = i;
+#if 0     // ------------------- Низкий уровень -----------------------------------
+  eRxPrm rxPrmFlag = RX_PRM_NUM;
+  uint8_t * bufEnd = rxBuf + rxSizeMax;
+  uint8_t * prmStr[RX_PRM_NUM] = {"pressure_limit", "pump_period", "broadcast_mode"};
+
+  for( rxlen = 0; rxBuf != rxSizeMax; rxBuf++ ) {
+    uint8_t ch = *rxBuf;
+    assert_param( ch != '\0' );
+    if( ch == '}' ){
+//      rxlen = i;
       break;
     }
+    if( (rxPrmFlag == RX_PRM_NUM) && (ch != '"') ){
+      continue;
+    }
+    rxBuf++;
+    for( rxPrmFlag = 0; rxPrmFlag < RX_PRM_NUM; rxPrmFlag++ ){
+      if( strcmp( (char*)rxBuf, (char*)prmStr[rxPrmFlag] ) == 0 ){
+        break;
+      }
+    }
+    if( rxPrmFlag == RX_PRM_NUM ){
+      trace_write( "\t!!!Rx prm fault!!!\n", 20);
+    }
+    else {
+      // Парсим значение параметра
+      while( (*rxBuf < '0') || (*rxBuf > '9') )
+      {}
+      // Принят нормальный параметр
+      measDev.receivPrm[rxPrmFlag] = atoi((char*)rxBuf);
+    }
   }
-
-  if(rxlen == 0){
-    return rxBuf + i;
-  }
-
-
+#else // ------------------- Высокий уровень -----------------------------------
+  (void)rxSizeMax;
+  rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
+      (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+#endif  // ---------------------------------------------------------------------
 
   return rxlen;
 }
@@ -323,14 +346,21 @@ void measClock( void ){
   if( VCP_Received ){
     uint8_t rxbuf[RX_BUFF_SIZE/4];
     uint16_t len;
+    uint8_t parsbuf[RX_BUFF_SIZE/2];
+    uint8_t parslen;
 
-    Read_VCP( rxbuf, &len );
-    if( len ){
+    Read_VCP( rxbuf, (uint32_t*)&len );
+    assert_param( len <= ARRAY_SIZE(rxbuf) );
+    while( len ){
       // Что-то приняли
       if( buffer_GetFree( &rxBuf ) >= len ){
-        buffer_Write( &rxBuf, rxbuf, len );
+        len -= buffer_Write( &rxBuf, rxbuf, len );
       }
-      while( buffer_ )
+      while( (parslen = buffer_FindChar( &rxBuf, '}')) ){
+        buffer_Read( &rxBuf, parsbuf, parslen );
+        // Будем парсить принятое сообщение
+        receivParse( parsbuf, parslen );
+      }
     }
 
   }
@@ -355,5 +385,5 @@ void measInit( void ){
 //  measDev.alcoData = tmpAd;
   measDev.relPulse = REL_PULSE_DEF;
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
-  bufffer_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
+  buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
 }

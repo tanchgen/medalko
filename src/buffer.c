@@ -315,7 +315,7 @@ void buffer_Reset(Buffer_t* Buffer) {
 	Buffer->Out = Buffer->Buffer;
 }
 
-int16_t buffer_FindElement(Buffer_t* Buffer, uint8_t * Element) {
+int16_t buffer_FindChar(Buffer_t* Buffer, uint8_t ch) {
 	uint32_t Num, retval = 0;
 	uint8_t * Out;
 
@@ -328,16 +328,16 @@ int16_t buffer_FindElement(Buffer_t* Buffer, uint8_t * Element) {
 	Num = buffer_GetFull(Buffer);
 	Out = Buffer->Out;
 
-	/* Go through input elements */
+	/* Go through input char */
 	while (Num > 0) {
 		/* Check output overflow */
 		if (Out >= (Buffer->Buffer + Buffer->Size) ){
 			Out = Buffer->Buffer;
 		}
 
-		/* Check for element */
-		if ( memcmp(Out, Element, sizeof(uint8_t)) == 0 ) {
-			/* Element found, return position in buffer */
+		/* Check for char */
+		if ( *Out == ch ) {
+			/* Char found, return position in buffer */
 			return retval;
 		}
 
@@ -349,6 +349,42 @@ int16_t buffer_FindElement(Buffer_t* Buffer, uint8_t * Element) {
 
 	/* Element is not in buffer */
 	return -1;
+}
+
+int16_t buffer_FindElement(Buffer_t* Buffer, uint8_t * Element) {
+  uint32_t Num, retval = 0;
+  uint8_t * Out;
+
+  /* Check buffer structure */
+  if (Buffer == NULL) {
+    return -1;
+  }
+
+  /* Create temporary variables */
+  Num = buffer_GetFull(Buffer);
+  Out = Buffer->Out;
+
+  /* Go through input elements */
+  while (Num > 0) {
+    /* Check output overflow */
+    if (Out >= (Buffer->Buffer + Buffer->Size) ){
+      Out = Buffer->Buffer;
+    }
+
+    /* Check for element */
+    if ( memcmp(Out, Element, sizeof(uint8_t)) == 0 ) {
+      /* Element found, return position in buffer */
+      return retval;
+    }
+
+    /* Set new variables */
+    Out++;
+    Num--;
+    retval++;
+  }
+
+  /* Element is not in buffer */
+  return -1;
 }
 
 int8_t buffer_CheckElement(Buffer_t* Buffer, uint16_t pos, uint8_t* element) {

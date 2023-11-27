@@ -1,12 +1,12 @@
 /*
- * buffer.h
+ * buffer.meas.h
  *
  *  Created on: Фев 20, 2020
  *      Author: jet
  */
 
 #ifndef MEAS_BUF_H
-#define MEAS_BUF_H 100
+#define MEAS_BUF_H
 
 #include <stdint.h>
 #include <stdlib.h>

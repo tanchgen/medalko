@@ -5,8 +5,8 @@
  *      Author: jet
  */
 
-#ifndef MEAS_BUF_H
-#define MEAS_BUF_H 100
+#ifndef BUFFER_H
+#define BUFFER_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -147,6 +147,8 @@ uint16_t buffer_GetFull(Buffer_t* Buffer);
  */
 void buffer_Reset(Buffer_t* Buffer);
 
+int16_t buffer_FindChar(Buffer_t* Buffer, uint8_t ch);
+
 /**
  * @brief  Checks if specific element value is stored in buffer
  * @param  *Buffer: Pointer to @ref Buffer_t structure
@@ -186,4 +188,4 @@ int8_t buffer_CheckElement(Buffer_t* Buffer, uint16_t pos, uint8_t* element);
  */
 
 
-#endif /* MEAS_BUF_H_ */
+#endif /* BUFFER_H_ */

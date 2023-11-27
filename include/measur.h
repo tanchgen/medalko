@@ -42,6 +42,14 @@ typedef enum {
   SEND_CONT
 } eSendState;
 
+typedef enum {
+//  RX_PRM_NULL,
+  RX_PRM_PRESS,
+  RX_PRM_PERIOD,
+  RX_PRM_CONTINUE,
+  RX_PRM_NUM
+} eRxPrm;
+
 typedef union _sMeasStatus {
   struct {
     uint32_t measStart: 1;
@@ -116,6 +124,14 @@ typedef struct _sMeasur {
   float tempLimMin;
   float tempLimMax;
 
+  union {                       // Параметры, принимаемые сверху
+    struct {
+      uint16_t prmPressMin;             // Нижний порог давления
+      uint16_t prmPumpPeriod;           // Период срабатывания соленоида
+      uint16_t prmContinuous;             // Флаг непрерывной
+    };
+    uint16_t receivPrm[RX_PRM_NUM];
+  };
 } sMeasur;
 
 extern sMeasur measDev;
