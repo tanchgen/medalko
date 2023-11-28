@@ -397,7 +397,7 @@ void adcProcess( uintptr_t arg ){
                 pData->prm -= 1;
               }
             }
-            else if(pData->prm > 0 ){
+            else if(pData->prm > 1 ){
               pData->prm -= 1;
             }
           }

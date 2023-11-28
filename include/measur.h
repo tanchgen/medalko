@@ -14,7 +14,7 @@
 #define MEAS_TIME_MAX     3000
 #define MEAS_TIME_MIN     1000
 
-#define MEAS_SEQ_NUM_MAX  1000
+#define MEAS_SEQ_NUM_MAX  1024
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
 #define ALCO_TOUT_MIN     500   // Время ожидания срабатывания порога ALCO после выключения соленоида
@@ -37,10 +37,19 @@ typedef enum _eMesState {
 
 typedef enum {
   SEND_START,
-  SEND_CONT,
+  SEND_GOON,
   SEND_FIN,
-  SEND_END
+  SEND_END,
+  SEND_CONT
 } eSendState;
+
+typedef enum {
+//  RX_PRM_NULL,
+  RX_PRM_PRESS,
+  RX_PRM_PERIOD,
+  RX_PRM_CONTINUE,
+  RX_PRM_NUM
+} eRxPrm;
 
 typedef union _sMeasStatus {
   struct {
@@ -53,6 +62,7 @@ typedef union _sMeasStatus {
     uint32_t relEnd: 1;
     uint32_t sendStart: 1;
     uint32_t sent: 1;
+    uint32_t cont: 1;         // Флаг постоянной передачи
   };
   uint32_t u32stat;
 } uMeasStatus;
@@ -66,10 +76,10 @@ typedef struct {
 } sPrmDt;
 
 typedef struct _sAlcoData {
-  int32_t press;
-  int32_t alco;
-  int32_t temp;
-} sAlcoData;
+  int16_t press;
+  int16_t alco;
+  int16_t temp;
+} sMeasRec;
 
 typedef struct _sMeasur {
   uMeasStatus status;
@@ -90,8 +100,8 @@ typedef struct _sMeasur {
   uint32_t secsStop;
   uint32_t msecStop;
 
-  sAlcoData alcoData[MEAS_SEQ_NUM_MAX];       // Указатель на массив собранных данных
-  uint32_t dataNum;           // Количество собранных данных
+  sMeasRec alcoData;       // Указатель на массив собранных данных
+//  uint32_t dataNum;           // Количество собранных данных
   eSendProto sendProto;
 
   uint32_t relPulse;
@@ -116,6 +126,14 @@ typedef struct _sMeasur {
   float tempLimMin;
   float tempLimMax;
 
+  union {                       // Параметры, принимаемые сверху
+    struct {
+      uint16_t prmPressMin;             // Нижний порог давления
+      uint16_t prmPumpPeriod;           // Период срабатывания соленоида
+      uint16_t prmContinuous;             // Флаг непрерывной
+    };
+    uint16_t receivPrm[RX_PRM_NUM];
+  };
 } sMeasur;
 
 extern sMeasur measDev;

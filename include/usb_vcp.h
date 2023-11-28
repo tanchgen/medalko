@@ -4,7 +4,7 @@
 #include "stdint.h"
 
 #if SIMUL
-#define USB_SIMUL     1
+#define USB_SIMUL     0
 #else
 #define USB_SIMUL     1
 #endif // SIMUL
@@ -117,7 +117,7 @@ void EN_TX_EP1();                                           //Set endpoint 1 tra
 void DIS_TX_EP1();                                          //Set endpoint 1 transmission to NAK.
 void Send_EP1(uint8_t* data, uint32_t len);			        //Send a packet on endpoint 1. Max packet lenght 64 byte.
 void Send_EP1_Jumbo(uint8_t* data, uint32_t len);			//Send a packet on endpoint 1. Max packet lenght 4294967296 byte.
-void Read_EP1(uint8_t* Received_data, uint32_t* len);		//Read a packet received on endpoint 1. The packet will be copied in the "Received_Data" array, and the leght of the packet will be written in the "len" variable.
+void Read_EP1(uint8_t* Received_data, uint16_t* len);		//Read a packet received on endpoint 1. The packet will be copied in the "Received_Data" array, and the leght of the packet will be written in the "len" variable.
 
 //Enpoint 2 functions.
 void EN_RX_EP2();											//Set endpoint 2 reception to VALID.

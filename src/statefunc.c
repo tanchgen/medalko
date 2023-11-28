@@ -76,7 +76,7 @@ inline void stateOff( void ){
   else {
     if( measRunWait == MSTATE_NON ){
 #if SIMUL
-      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 0 ){
+      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 1 ){
         return;
       }
 #endif // SIMUL
