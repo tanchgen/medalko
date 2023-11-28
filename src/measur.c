@@ -161,6 +161,9 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   }
 #else // ------------------- Высокий уровень -----------------------------------
   (void)rxSizeMax;
+  while( *rxBuf != '{' ){
+    rxBuf++;
+  }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
       (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
 #endif  // ---------------------------------------------------------------------
@@ -281,10 +284,14 @@ void measClock( void ){
     if( sendTout && (sendTout <= mTick) ){
       if( ++errCount == 2 ){
         // Неудалось отправить
+        errCount = 0;
         measDev.status.sendStart = RESET;
         measDev.status.cont = RESET;
         sendState = SEND_START;
+        measRunWait = MSTATE_NON;
         measState = MEASST_FAULT;
+        // Очистка буфера
+        measBuf_Reset( &measBuf );
       }
       else {
         sendTout = mTick + USB_SEND_TOUT;
@@ -347,17 +354,17 @@ void measClock( void ){
     uint8_t rxbuf[RX_BUFF_SIZE/4];
     uint16_t len;
     uint8_t parsbuf[RX_BUFF_SIZE/2];
-    uint8_t parslen;
+    int16_t parslen;
 
-    Read_VCP( rxbuf, (uint32_t*)&len );
+    Read_VCP( rxbuf, &len );
     assert_param( len <= ARRAY_SIZE(rxbuf) );
     while( len ){
       // Что-то приняли
       if( buffer_GetFree( &rxBuf ) >= len ){
         len -= buffer_Write( &rxBuf, rxbuf, len );
       }
-      while( (parslen = buffer_FindChar( &rxBuf, '}')) ){
-        buffer_Read( &rxBuf, parsbuf, parslen );
+      while( (parslen = buffer_FindChar( &rxBuf, '}')) >= 0 ){
+        buffer_Read( &rxBuf, parsbuf, parslen + 1 );
         // Будем парсить принятое сообщение
         receivParse( parsbuf, parslen );
       }

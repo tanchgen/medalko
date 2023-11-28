@@ -240,12 +240,11 @@ void Send_EP1_Jumbo(uint8_t* data, uint32_t len)	{
 }
 
 //Read a packet received on endpoint 1 and enable endpoint 1 to receive a new packet. The packet will be copied in the "Received_Data" array, and the leght of the packet will be written in the "len" variable.
-void Read_EP1(uint8_t* Received_data, uint32_t* len) {
-	uint32_t N_Byte_Received = USB_COUNT1_RX & 0x03FF;	//Check the number of byte received
-	uint32_t ii=0;	
+void Read_EP1(uint8_t* Received_data, uint16_t* len) {
+	uint16_t N_Byte_Received = USB_COUNT1_RX & 0x03FF;	//Check the number of byte received
 	uint8_t* p_mem_8 = (uint8_t*) USB_RX1_BASE_32;
 	USB_RECEIVED_EP1 = 0;								//Reset flag EP1 reception.
-	for(ii=0;ii<N_Byte_Received;)	{					//Copy the received data from endpoint 1 reception buffer to "Received_data" buffer. Note: endpoint 1 buffer is 16 bit wide, not 32.
+	for( uint16_t ii=0;ii<N_Byte_Received;)	{					//Copy the received data from endpoint 1 reception buffer to "Received_data" buffer. Note: endpoint 1 buffer is 16 bit wide, not 32.
 		Received_data[ii] = *p_mem_8;
 		ii++;
 		p_mem_8++;
