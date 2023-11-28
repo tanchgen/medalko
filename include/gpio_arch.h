@@ -18,6 +18,8 @@
 /** Тайм-аут переходного процесса при изменении состояния вывода GPIO. */
 #define _GPIO_PIN_STATE_TRANSIENT_TOUT  (CONFIG_HZ)
 
+#define PIN_TEST_EN		0
+
 /** Тайм-аут процедуры антидребезга входов EXTI. */
 #define KEY_DEBOUNCE_TOUT  50
 

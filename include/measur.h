@@ -17,6 +17,7 @@
 #define MEAS_SEQ_NUM_MAX  1024
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
+#define ALCO_TOUT_MIN     500   // Время ожидания срабатывания порога ALCO после выключения соленоида
 
 typedef enum {
   PROTO_JSON,
@@ -82,6 +83,7 @@ typedef struct _sAlcoData {
 
 typedef struct _sMeasur {
   uMeasStatus status;
+  FlagStatus rel;           // Работа соленоида
   uint32_t secs;
   uint32_t msec;
 

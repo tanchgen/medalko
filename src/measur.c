@@ -193,7 +193,7 @@ void pressProc( int32_t press, uint16_t * count ){
       }
   }
   else if( measState < MEASST_END_PROB ){
-    if( press < measPressLimMin ){
+    if( (measDev.status.relEnd == RESET) && (press < measPressLimMin) ){
       if( measDev.status.pressFaultLow == RESET ){
         measDev.status.pressFaultLow = SET;
         measRunWait = MSTATE_NON;
@@ -206,7 +206,7 @@ void pressProc( int32_t press, uint16_t * count ){
         measDev.alcoData.press = press;
       }
       else {
-        if (measState == MEASST_START_PROB ){
+        if ( measDev.status.pressOk == RESET ){
           // Период ПЕРЕД забором проб
           (*count)++;
           pressAvg += press;

@@ -15,7 +15,9 @@ sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL,
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
+#if PIN_TEST_EN
 sGpioPin gpioPinTest = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+#endif // PIN_TEST_EN
 
 FlagStatus relOnSet;
 uint8_t relOnCount;
@@ -154,6 +156,7 @@ void REL_PULSE_TIM_IRQH( void ) {
   // Выключаем соленоид
   gpioPinResetNow( &gpioPinRelOn );
   measDev.status.relEnd = SET;
+  measDev.rel = RESET;
 }
 
 
@@ -305,7 +308,7 @@ void zoomTimInit( void ){
 
 
 void zoomOn( void ){
-  ZOOM_TIM->CR1 |= TIM_CR1_CEN;
+  // ZOOM_TIM->CR1 |= TIM_CR1_CEN;
 }
 
 void zoomOff( void ){
@@ -399,7 +402,9 @@ void gpioInit( void ){
   gpioPinSetup( &gpioPinRelEn );
   gpioPinSetup( &gpioPinRelOn );
 
+#if PIN_TEST_EN
   gpioPinSetup( &gpioPinTest );
+#endif // PIN_TEST_EN
 
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();

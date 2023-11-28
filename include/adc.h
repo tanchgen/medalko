@@ -60,12 +60,26 @@
 
 
 
+#define VDD_AVG           1
+#define TERM_AVG          0
 #define PRESS_AVG         0
-#define ALCO_AVG         0
+#define ALCO_AVG          0
 
-#if PRESS_AVG  || ALCO_AVG
-#define ADC_AVRG_IDX      10
-#endif //PRESS_AVG  || ALCO_AVG
+#if PRESS_AVG
+#define PRESS_AVRG_IDX      10
+#endif //PRESS_AVG
+
+#if VDD_AVG
+#define VDD_AVRG_IDX      10
+#endif //VDD_AVG
+
+#if ALCO_AVG
+#define ALCO_AVRG_IDX      10
+#endif //ALCO_AVG
+
+#if TERM_AVG
+#define TERM_AVRG_IDX      10
+#endif //TERM_AVG
 
 typedef enum {
   ADC_PRM_VDD,
@@ -116,6 +130,7 @@ typedef struct {
   struct {
     uint16_t adcVprm[ADC_PRM_NUM];
   };
+  uint16_t avgVdd;
 
   struct {
       uint16_t prmNok:  1;
