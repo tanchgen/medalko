@@ -40,7 +40,8 @@ typedef enum {
   SEND_GOON,
   SEND_FIN,
   SEND_END,
-  SEND_CONT
+  SEND_CONT,
+  SEND_NULL
 } eSendState;
 
 typedef enum {
@@ -151,5 +152,9 @@ void totalProc( void );
 
 void measStartClean( void );
 void measInit( void );
+
+void continueStart( void );
+void continueStop( void );
+void continueProc( void );
 
 #endif /* MEASUR_H_ */

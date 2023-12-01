@@ -113,12 +113,12 @@ size_t sendTmEnd( uint8_t * buf ){
 
   // Закрывающие скобки
   if( measDev.sendProto == PROTO_JSON ){
-    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}\n}\n", measDev.secsStop, measDev.msecStop );
+    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}\n}\n\n", measDev.secsStop, measDev.msecStop );
   }
   else {
-    sz = 0;
+    *buf = '\n';
+    sz = 1;
   }
-
   return sz;
 }
 
@@ -186,11 +186,11 @@ uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
 // Обработка результата ADC_PRESS
 void pressProc( int32_t press, uint16_t * count ){
   if( measState == MEASST_OFF ){
-      if( (press > measPressLimMin) && onCan ){
-        // Давление выше минимального порога - Запускаем процесс забора проб
-        measOnNeed = SET;
-        measDev.tout0 = mTick;
-      }
+    if( (press > measPressLimMin) && onCan ){
+      // Давление выше минимального порога - Запускаем процесс забора проб
+      measOnNeed = SET;
+      measDev.tout0 = mTick;
+    }
   }
   else if( measState < MEASST_END_PROB ){
     if( (measDev.status.relEnd == RESET) && (press < measPressLimMin) ){
@@ -267,6 +267,33 @@ void totalProc( void ){
 }
 
 
+void continueStart( void ){
+  measDev.status.measStart = SET;
+  measDev.status.cont = SET;
+  sendState = SEND_CONT;
+}
+
+
+void continueStop( void ){
+  measDev.status.cont = RESET;
+  sendState = SEND_START;
+  measRunWait = MSTATE_NON;
+  measState = MEASST_FAULT;
+  // Очистка буфера
+  measBuf_Reset( &measBuf );
+  timerMod( &measOnCanTimer, TOUT_1500 );
+}
+
+
+void continueProc( void ){
+  if( measDev.tout && (measDev.tout < mTick) ){
+    // Включаем соленоид
+    measDev.status.relStart = SET;
+    measDev.tout = measDev.prmPumpPeriod;
+  }
+}
+
+
 // Периодически выполняемая функция 
 void measClock( void ){
   uint32_t size;
@@ -279,6 +306,14 @@ void measClock( void ){
     return;
   }
 #endif // defined(TRACE)
+  if( measDev.status.cont ){
+    if( measDev.prmContinuous == RESET ){
+      continueStop();
+    }
+    else {
+      continueProc();
+    }
+  }
 
   if( measDev.status.sendStart ){
     if( sendTout && (sendTout <= mTick) ){
@@ -308,7 +343,9 @@ void measClock( void ){
           if( (size = sendTmCont( sendBuf )) == 0){
             sendState++;
           }
-          sendCount++;
+          else {
+          	sendCount++;
+          }
           break;
         case SEND_FIN:
           size = sendTmEnd( sendBuf );
@@ -316,8 +353,6 @@ void measClock( void ){
           break;
         case SEND_END:
           size = 0;
-          measDev.status.sendStart = RESET;
-          measDev.status.sent = SET;
           break;
         case SEND_CONT:
           size = sendTmCont( sendBuf );
@@ -342,6 +377,8 @@ void measClock( void ){
         sendTout = mTick + USB_SEND_TOUT;
       }
       else if ( sendState == SEND_END ){
+        measDev.status.sendStart = RESET;
+        measDev.status.sent = SET;
         sendState = SEND_START;
         sendCount = 0;
         sendTout = 0;
@@ -380,6 +417,10 @@ void measClock( void ){
 
 void measStartClean( void ){
   measDev.status.u32stat = 0;
+  measDev.prmContinuous = 0;
+  measDev.prmPumpPeriod = 3000;
+  measDev.prmPressMin = measPressLimMin;
+  measDev.sendProto = PROTO_CSV;
 }
 
 

@@ -52,7 +52,12 @@ struct timer_list  measOnCanTimer;
 static void measOnCan(uintptr_t arg){
   (void)arg;
   // Система выключена полностью и готова к повторному включению
-  onCan = SET;
+  if( measDev.prmContinuous ){
+    continueStart();
+  }
+  else {
+    onCan = SET;
+  }
 #if SIMUL
   simulStart = mTick + 2000;
 #endif // SIMUL
