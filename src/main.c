@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef DEBUG
-  trace_puts("\nHello! Medic!");
+  trace_puts("\nHello, Medic!");
 #endif
   /* Инициализация интерфейсов. */
 //  mDelay( 100 );
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 
   mDelay(INIT_TOUT);
 #ifdef DEBUG
-  trace_puts("ALKO Run");
+  trace_puts("ALKO 2 Run");
 #endif
 
   // Infinite loop
