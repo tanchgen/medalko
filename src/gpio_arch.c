@@ -161,7 +161,6 @@ void REL_PULSE_TIM_IRQH( void ) {
   // Выключаем соленоид
   gpioPinResetNow( &gpioPinRelOn );
   measDev.status.relEnd = SET;
-  measDev.rel = RESET;
 }
 
 
@@ -364,7 +363,7 @@ void gpioClock( void ){
   if( measDev.status.relStart ){
     measDev.tout = mTick + measDev.relPulse;
     // Отключаем источник питания от соленоида
-    gpioPinResetNow( &gpioPinRelEn );
+    gpioPinSetNow( &gpioPinRelEn );
     gpioPulse( &gpioPinRelOn );
     measDev.status.relStart = RESET;
   }
@@ -388,7 +387,7 @@ void gpioEnable( void ) {
 #endif
 
   timerMod( &measOnCanTimer, TOUT_1500 );
-  gpioPinSetNow( &gpioPinRelEn );
+  gpioPinResetNow( &gpioPinRelEn );
 }
 
 /**

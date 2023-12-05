@@ -65,6 +65,7 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
+
     zoomOn();
     assert_param( measDev.status.pressOk == RESET );
     measDev.tout = mTick + MEAS_TIME_MAX;
@@ -80,8 +81,8 @@ inline void stateOff( void ){
         return;
       }
 #endif // SIMUL
-      timerMod( &measOnCanTimer, TOUT_1500 );
-      gpioPinSetNow( &gpioPinRelEn );
+      timerMod( &measOnCanTimer, TOUT_1000 * 10 );
+      gpioPinResetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
@@ -111,7 +112,6 @@ inline void stateStart( void ){
           measDev.status.pressOk = SET;
           // Запуск соленоида
           measDev.status.relStart = SET;
-          measDev.rel = SET;
           trace_printf(":Solenoid start\n");
           measRunWait = MSTATE_NON_2;
         }

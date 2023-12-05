@@ -84,7 +84,6 @@ typedef struct _sAlcoData {
 
 typedef struct _sMeasur {
   uMeasStatus status;
-  FlagStatus rel;           // Работа соленоида
   uint32_t secs;
   uint32_t msec;
 
