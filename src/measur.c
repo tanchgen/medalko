@@ -327,6 +327,7 @@ void measClock( void ){
         measState = MEASST_FAULT;
         // Очистка буфера
         measBuf_Reset( &measBuf );
+        N_JUMBO_SUBPACKETS = 0;
       }
       else {
         sendTout = mTick + USB_SEND_TOUT;
