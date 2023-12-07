@@ -6,7 +6,7 @@
  */
 
 #include "main.h"
-#include "i2c.h"
+#include "press_i2c.h"
 
 sGpioPin pressPinScl = {GPIOB, 1, GPIO_Pin_6, 6, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 sGpioPin pressPinSda = {GPIOB, 1, GPIO_Pin_7, 7, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
@@ -22,11 +22,19 @@ uint8_t  regAddr[REG_NUM] = {
   0xA6,         // REG_P_CFG,
 };
 
+// Значения регистров по умолчанию
+const sPCfgReg pcfgReg = {PCFG_INSWAP | PCFG_GAIN | PCFG_OSR};
+const sSysCfgReg syscfgReg = {SYSCFG_LDO | SYSCFG_UNIPOLAR | SYSCFG_OUT_CTRL | SYSCFG_DIAG};
+const sCmdReg cmdReg = {CMD_SLEEP_62MS | CMD_SCO | CMD_MEAS_CTRL};
+
 struct _i2cProgrData {
   uint8_t reg;
   uint8_t data;
-} sI2cProgrData = {
-    {regAddr[REG_P_CFG], },
+} i2cProgrData = {
+    {regAddr[REG_P_CFG], pcfgReg },
+    {regAddr[REG_SYS_CFG], pcfgReg },
+    {regAddr[REG_SYS_CFG], pcfgReg },
+    {regAddr[REG_CMD], pcfgReg },
 };
 
 #define I2C_PACK_MAX      10
@@ -67,10 +75,40 @@ FlagStatus i2cRegRead( uint8_t reg, uint8_t len ){
 
 // Процес информационного обмена по I2C с PRESS
 void pressI2cProc( void ){
+  transCount = 0;
+  switch( pressProgr ){
+    case PRESS_CFG_P:
+      // Записываем конфигурацию P_CFG, Считываем SYS_CFG
+      i2cRegWrite( regAddr[REG_P_CFG], pcfgReg );
+      i2cRegRead( regAddr[REG_SYS_CFG], 1 );
+      break;
+    case PRESS_CFG_SYS_W:
+      // Запись в SYS_CFG
+      uint8_t data;
+
+      // Сохраняем AOUT
+      data = (i2cTrans[transCount - 1].rxData & SYSCFG_AOUT_MASK) | syscfgReg;
+      i2cRegWrite( regAddr[REG_SYS_CFG], data );
+      // Конфиг CMD_REG и сразу запуск измерений
+      i2cRegWrite( regAddr[REG_CMD], cmdReg );
+      pressProgr = PRESS_START;
+    case PRESS_START:
+      // Запуск измерений - CMD.SCO
+      break;
+    case PRESS_WAIT:
+      // Читаем статус - ждем окончания измерений
+      break;
+    case PRESS_T_L:
+      // Считываем результаты
+      break;
+    default:
+      break;
+  }
   if( pressProgr == PRESS_CFG_0 ){
     // Записываем конфигурацию
     i2cRegWrite()
   }
+  else if( )
 }
 
 
@@ -87,11 +125,23 @@ void i2cClock( void ){
     case I2C_STATE_READ:
       break;
     case I2C_STATE_END:
-      if( ++pressProgr == PRESS_PROGR_NUM ){
-        pressI2cTout = mTick + 10;
-      }
-      else {
-        pressI2cTout = mTick;
+      if( i2cTrans[transCount].txLen == 0 ){
+        // Больше передавать нечего - переходим к следующему пункту программы обмена
+        if( ++pressProgr == PRESS_PROGR_NUM ){
+          // Дошли до конца списка
+          pressI2cTout = mTick + 20;
+        }
+        else if( pressProgr == PRESS_T_L ){
+          // Ожидание окончания измерения
+          if( ((sCmdReg)(i2cTrans[transCount - 1].rxData[0])).sco != RESET ){
+            // Данные НЕ готовы - проверяем опять
+            pressProgr--;
+            pressI2cTout = mTick;
+          }
+        }
+        else {
+          pressI2cTout = mTick;
+        }
       }
       break;
     default:

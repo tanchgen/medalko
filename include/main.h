@@ -65,6 +65,11 @@ extern char prnbuf[];
 #define __packed __attribute__ ((__packed__))
 #endif
 
+//enum {
+//  RESET,
+//  SET
+//};
+
 /** Сборка кода версии программного обеспечения. */
 #define FW_VERSION(a, b, c)	(((a) << 13) + ((b) << 8) + (c))
 

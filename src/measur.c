@@ -186,14 +186,14 @@ uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
 // Обработка результата ADC_PRESS
 void pressProc( int32_t press, uint16_t * count ){
   if( measState == MEASST_OFF ){
-    if( (press > measPressLimMin) && onCan ){
+    if( (press > measDev.prmPressMin) && onCan ){
       // Давление выше минимального порога - Запускаем процесс забора проб
       measOnNeed = SET;
       measDev.tout0 = mTick;
     }
   }
   else if( measState < MEASST_END_PROB ){
-    if( (measDev.status.relEnd == RESET) && (press < measPressLimMin) ){
+    if( (measDev.status.relEnd == RESET) && (press < measDev.prmPressMin) ){
       if( measDev.status.pressFaultLow == RESET ){
         measDev.status.pressFaultLow = SET;
         measRunWait = MSTATE_NON;
@@ -217,7 +217,7 @@ void pressProc( int32_t press, uint16_t * count ){
           else {
             float tmp;
 
-            tmp = (((press - measPressLimMin) * 1000)/(measPressLimMax - measPressLimMin));
+            tmp = (((press - measDev.prmPressMin) * 1000)/(measPressLimMax - measDev.prmPressMin));
             tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
             tmp /= 1000;
             tmp = MEAS_TIME_MAX - tmp;
