@@ -10,16 +10,19 @@
 
 #include "stm32f10x.h"
 
-#define ALCO_I2C          I2C1
-#define ALCO_I2C_SPEED    400000UL
+#define PRESS_I2C           I2C1
+#define PRESS_I2C_SPEED     400000UL
+#define PRESS_I2C_ADDR      (0x6D << 1)
 
+#define I2C_WRITE_BIT       0x1
+#define I2C_READ_BIT        0x0
 
 typedef enum {
   I2C_STATE_IDLE,
   I2C_STATE_WRITE,
   I2C_STATE_READ,
   I2C_STATE_END
-} i2cState;
+} eI2cState;
 
 typedef enum _alcoreg {
   REG_PRESS_MSB,
@@ -53,6 +56,7 @@ typedef struct _i2ctrans {
   eAlcoReg regRx;
   uint8_t rxData[3];
   uint8_t rxLen;
+  eI2cState state;
 } sI2cTrans;
 
 typedef struct _alcoDev {

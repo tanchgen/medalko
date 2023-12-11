@@ -11,10 +11,14 @@
 sGpioPin alcoPinScl = {GPIOB, 1, GPIO_Pin_6, 6, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 sGpioPin alcoPinSda = {GPIOB, 1, GPIO_Pin_7, 7, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 
+sI2cTrans i2cTrans[TRANS_NUM];
+
 FlagStatus i2cRegWrite( uint8_t reg, uint8_t data ){
   FlagStatus rc = RESET;
 
-
+  // ..........
+  // Запускаем
+  PRESS_I2C->CR1 |= I2C_CR1_START;
   return rc;
 }
 
@@ -24,6 +28,119 @@ FlagStatus i2cRegRead( uint8_t reg, uint8_t data ){
 
   return rc;
 }
+
+
+void i2cWriteHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
+  // 1. Отправляем адрес
+  // 2. Отправляем вдрес регистра
+  //   Сост. запись
+  // 3. Пока есть еще что отправлять - отправляем
+  // 4. Есть чт
+  // 4. Если нечего читать - останавливаемся ( IDLE )
+  // 5. Рестарт
+  // 6. -> п. 1
+  //
+
+  asser_param( i2c = PRESS_I2C );
+  if( i2c->SR1 & I2C_SR1_SB ){
+    // Старт-условие
+    assert_param( trans->state == I2C_STATE_WRITE );
+    i2c->DR = PRESS_I2C_ADDR | I2C_WRITE_BIT;
+  }
+  if( i2c->SR1 & I2C_SR1_ADDR ){
+    // Адрес отправлен
+    i2c->DR = trans->regTx;
+    i2c->DR = trans->txData;
+  }
+  if( i2c->SR1 & I2C_SR1_TXE ){
+    // При записи отправляем только один байт данных
+    assert_param( trans->txLen == 1 );
+    trans->txLen = 0;
+    i2c->DR = trans->txData;
+    i2c->CR2 &= ~I2C_CR2_ITBUFEN;
+  }
+  if( i2c->SR1 & I2C_SR1_BTF ){
+    i2c->CR1 |= I2C_CR1_STOP;
+  }
+
+
+    else {
+      assert_pararm( trans->state == I2C_STATE_READ );
+      // При чтении отправляем только один байт - арес регистра
+      assert_param( trans->txLen == 0 );
+      assert_param( (i2c->CR2 & I2C_CR2_ITBUFEN) == RESET );
+      i2c->DR = trans->regRx;
+    }
+  }
+  if( i2c->SR1 & I2C_SR1_TXE ){
+    // При записи отправляем только один байт данных
+    assert_param( trans->txLen == 1 );
+    trans->txLen = 0;
+    i2c->DR = trans->txData;
+    i2c->CR2 &= ~I2C_CR2_ITBUFEN;
+  }
+
+
+}
+
+
+void i2cReadHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
+  // 1. Отправляем адрес
+  // 2. Отправляем вдрес регистра
+  //   Сост. запись
+  // 3. Пока есть еще что отправлять - отправляем
+  // 4. Есть чт
+  // 4. Если нечего читать - останавливаемся ( IDLE )
+  // 5. Рестарт
+  // 6. -> п. 1
+  //
+
+  asser_param( i2c = PRESS_I2C );
+  if( i2c->SR1 & I2C_SR1_SB ){
+    // Старт-условие
+    if( trans->state == I2C_STATE_WRITE ){
+      i2c->DR = trans->regTx;
+    }
+    else {
+      assert_pararm( trans->state == I2C_STATE_READ );
+      i2c->DR = trans->regRx;
+    }
+  }
+  if( i2c->SR1 & I2C_SR1_ADDR ){
+    // Адрес отправлен
+    if( trans->state == I2C_STATE_WRITE ){
+      i2c->DR = trans->txData;
+      i2c->CR1 |= I2C_CR1_STOP;
+    }
+    else {
+      assert_pararm( trans->state == I2C_STATE_READ );
+      // При чтении отправляем только один байт - арес регистра
+      assert_param( trans->txLen == 0 );
+      assert_param( (i2c->CR2 & I2C_CR2_ITBUFEN) == RESET );
+      i2c->DR = trans->regRx;
+    }
+  }
+  if( i2c->SR1 & I2C_SR1_TXE ){
+    // При записи отправляем только один байт данных
+    assert_param( trans->txLen == 1 );
+    trans->txLen = 0;
+    i2c->DR = trans->txData;
+    i2c->CR2 &= ~I2C_CR2_ITBUFEN;
+  }
+
+
+}
+
+void i2c1IrqHandle( void ){
+  if( i2cTrans.state == I2C_STATE_WRITE ){
+    i2cWriteHandle( PRESS_I2C, &i2cTrans );
+  }
+  else {
+    assert_param( i2cTrans.state == I2C_STATE_READ );
+    i2cReadHandle( PRESS_I2C, &i2cTrans );
+  }
+}
+
 
 void i2cEnable( void ){
   ALCO_I2C->CR1 |= I2C_CR1_PE;
