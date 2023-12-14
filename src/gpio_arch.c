@@ -11,6 +11,7 @@
   extern uint32_t simulStart;
 #endif // SIMUL
 
+sGpioPin gpioPinAlcoRst = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_SET, Bit_SET, RESET };
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
@@ -32,8 +33,8 @@ uint8_t relOnCount;
 //struct timer_list  pwrOffToutTimer;
 ///** Структура дескриптора таймера изменения состояния системы при включении*/
 //struct timer_list  pwrOnUpdateTimer;
-///** Структура дескриптора таймера изменения состояния системы при выключении */
-//struct timer_list  pwrOffUpdateTimer;
+/** Структура дескриптора таймера сброса АЛКОМЕТРА */
+struct timer_list  alcoOffTimer;
 
 /** Структура дескриптора таймера таймаута восстановления после ошибки */
 struct timer_list  measOnCanTimer;
@@ -64,9 +65,17 @@ static void measOnCan(uintptr_t arg){
 }
 
 
-
-
-
+/**
+  * @brief  Обработчик таймаута работы АЛКОМЕТРА
+  *
+  * @param[in]  arg  NULL
+  *
+  * @retval none
+  */
+//static void alcoOffTout(uintptr_t arg){
+//  (void)arg;
+//  gpioPinSetNow( &gpioPinAlcoRst );
+//}
 
 
 ///**
@@ -416,7 +425,7 @@ void gpioInit( void ){
 
   // ----------- TIMERS ---------------------------
   timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
-//  timerSetup( &pwrOnToutTimer, pwrOnTout, (uintptr_t)NULL);
+//  timerSetup( &alcoOffTimer, alcoOffTout, (uintptr_t)NULL);
 //  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
 }
 

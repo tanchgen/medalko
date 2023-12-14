@@ -69,6 +69,8 @@ inline void stateOff( void ){
     assert_param( measDev.status.pressOk == RESET );
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
+    // Включение АЛКОМЕТРА
+    gpioPinResetNow( &gpioPinAlcoRst );
     measRunWait = MSTATE_NON;
     trace_printf(":On begin\n");
     measState++;
@@ -124,6 +126,8 @@ inline void stateStart( void ){
           trace_printf(":Solenoid stop\n");
 #endif
           measDev.tout = mTick + ALCO_TOUT_MIN;
+          // Максимальное время измерения ALCO
+          timerMod( &alcoOffTimer, ALCO_TOUT_MAX );
           measRunWait = MSTATE_ON;
         }
         break;

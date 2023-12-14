@@ -19,12 +19,6 @@
 
 #define VREFINT_VOL     1200
 
-#define ADC_CH_NUM    4
-#define VDD_CH        17
-#define TEMP_CH       0
-#define PRESS_CH      1
-#define ALCO_CH       2
-
 //#define LEARN_COUNT_MIN   100
 #define LEARN_COUNT_MAX   200
 

@@ -33,6 +33,11 @@ sAdcHandle adcHandle = {
   .learnFlag = SET,
 };
 
+#define VDD_CH        17    // VREFINT_CHANNEL
+#define TEMP_CH       0     // PA0
+#define PRESS_CH      1     // PA1
+#define ALCO_CH       2     // PA2
+
 sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };

@@ -248,6 +248,7 @@ extern FlagStatus measurRun;
 /** Состояние уровня запуска системы */
 extern eMcuState measurState;
 
+extern sGpioPin gpioPinAlcoRst;
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
 extern sGpioPin gpioPinZoom;
@@ -275,11 +276,9 @@ extern sGpioPin gpioPinTest;
 //
 ///** Структура дескриптора таймера таймаута ожидания отклика на FPGA_RST*/
 //extern struct timer_list  mzuRstTestTimer;
-//
-/** Структура дескриптора таймера таймаута Старта/Стопа INTEL. */
-//extern struct timer_list  pwrBtnOutTimer;
-extern struct timer_list  measOnCanTimer;
 
+extern struct timer_list  alcoOffTimer;
+extern struct timer_list  measOnCanTimer;
 
 // ===========================================================================================================
 void zoomOn( void );

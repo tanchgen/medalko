@@ -152,6 +152,8 @@ extern volatile uint32_t  mTick;
 #define time_after_eq(a, b)	((int32_t)(a) - (int32_t)(b) >= 0)
 #define time_before_eq(a, b)	time_after_eq(b, a)
 
+void uDelay( const uint32_t usecs);
+
 /**
   * @brief	Задержка исполнения на заданное число миллисекунд.
   *
@@ -162,13 +164,13 @@ extern volatile uint32_t  mTick;
 void mDelay(const uint32_t msecs);
 
 /**
-  * @brief	Инициализация таймера.
+  * @brief	Инициализация системы таймеров.
   *
-  * @param[in]	timer		дескриптор таймера
+  * @param[in]	none
   *
   * @retval	none
   */
-void timerInit(struct timer_list *timer);
+void timersInit( void );
 
 /**
   * @brief	Настройка таймера.

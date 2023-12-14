@@ -81,9 +81,9 @@ size_t sendTmCont( uint8_t * buf ){
     }
     else {
       if( sendCount == 0 ){
-        sz = sprintf( (char*)buf, "%ld.%ld,%ld.%ld,", \
+        sz = sprintf( (char*)buf, "%ld.%03ld,%ld.%03ld,", \
                         measDev.secsStart,measDev.msecStart,
-                        measDev.secsStart2,measDev.secsStart2 );
+                        measDev.secsStart2,measDev.msecStart2 );
       }
       else {
         memcpy( (char*)buf, "0.0,0.0,", 8 );
@@ -248,6 +248,8 @@ void alcoProc( int32_t alco ){
     if( alco < measAlkoLimMin ){
       // Значение ALCO упало ниже порога - будем завершать данный цикл
       measDev.status.alcoLow = SET;
+      // Выключение АЛКОМЕТРА
+      gpioPinSetNow( &gpioPinAlcoRst );
     }
   }
   else if( alco > measAlkoLimMin ){
