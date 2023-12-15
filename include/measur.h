@@ -11,6 +11,9 @@
 #include <stddef.h>
 #include "stm32f10x.h"
 
+// Давление измеряет ADC или I2C
+#define PRESS_ADC         1
+
 #define MEAS_TIME_MAX     3000
 #define MEAS_TIME_MIN     1000
 
@@ -85,7 +88,7 @@ typedef struct _sAlcoData {
 
 typedef struct _sMeasur {
   uMeasStatus status;
-  FlagStatus rel;           // Работа соленоида
+  FlagStatus rel;           // Работа соленоида ДЛЯ МОНИТОРА
   uint32_t secs;
   uint32_t msec;
 
@@ -136,6 +139,7 @@ typedef struct _sMeasur {
     };
     uint16_t receivPrm[RX_PRM_NUM];
   };
+  uint32_t contRelTout;
 } sMeasur;
 
 extern sMeasur measDev;
@@ -151,6 +155,7 @@ void alcoProc( int32_t alco );
 void termProc( int32_t term );
 void totalProc( void );
 
+void measPrmClean( void );
 void measStartClean( void );
 void measInit( void );
 

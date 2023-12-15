@@ -166,6 +166,10 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
       (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+  measDev.prmPressMin = max( measDev.prmPressMin, 30 );  // Нижний порог = 20
+  measDev.prmPumpPeriod = max( measDev.prmPumpPeriod, 10000 );  // Минимальный интервал = 10с
+  measDev.prmContinuous = (measDev.prmContinuous)? SET : RESET;  // Или 0, или 1
+
 #endif  // ---------------------------------------------------------------------
 
   return rxlen;
@@ -188,6 +192,8 @@ void pressProc( int32_t press, uint16_t * count ){
   if( measState == MEASST_OFF ){
     if( (press > measPressLimMin) && onCan ){
       // Давление выше минимального порога - Запускаем процесс забора проб
+      // Обнуляем счетчик усреднения
+      *count = 0;
       measOnNeed = SET;
       measDev.tout0 = mTick;
     }
@@ -272,26 +278,29 @@ void totalProc( void ){
 void continueStart( void ){
   measDev.status.measStart = SET;
   measDev.status.cont = SET;
+  measDev.sendProto = PROTO_JSON;
+  measDev.status.sendStart = SET;
+  measDev.contRelTout = measDev.prmPumpPeriod + mTick;
   sendState = SEND_CONT;
 }
 
 
 void continueStop( void ){
   measDev.status.cont = RESET;
-  sendState = SEND_START;
+  measDev.status.measStart = RESET;
+  sendState = SEND_END;
   measRunWait = MSTATE_NON;
-  measState = MEASST_FAULT;
+  measState = MEASST_OFF;
   // Очистка буфера
   measBuf_Reset( &measBuf );
-  timerMod( &measOnCanTimer, TOUT_1500 );
 }
 
 
 void continueProc( void ){
-  if( measDev.tout && (measDev.tout < mTick) ){
+  if( measDev.contRelTout && (measDev.contRelTout < mTick) ){
     // Включаем соленоид
     measDev.status.relStart = SET;
-    measDev.tout = measDev.prmPumpPeriod;
+    measDev.contRelTout = measDev.prmPumpPeriod + mTick;
   }
 }
 
@@ -417,11 +426,15 @@ void measClock( void ){
 }
 
 
+void measPrmClean( void ){
+  measDev.prmContinuous = 0;
+  measDev.prmPumpPeriod = 0;
+  measDev.prmPressMin = measPressLimMin;
+}
+
+
 void measStartClean( void ){
   measDev.status.u32stat = 0;
-  measDev.prmContinuous = 0;
-  measDev.prmPumpPeriod = 3000;
-  measDev.prmPressMin = measPressLimMin;
   measDev.sendProto = PROTO_CSV;
 }
 
@@ -436,4 +449,5 @@ void measInit( void ){
   measDev.relPulse = REL_PULSE_DEF;
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
   buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
+  measPrmClean();
 }

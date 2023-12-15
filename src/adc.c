@@ -9,7 +9,6 @@
 #include "main.h"
 #include "adc.h"
 #include "gpio_arch.h"
-#include "measur.h"
 
 #define R1          10000UL       // Сопротивление резистора R1
 #define LN_RT25     9.21034     // ln(Rt) при 25гр.Ц
@@ -48,7 +47,9 @@ sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, 
 const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0,
     ADC_KPARAM_0,
+#if PRESS_ADC
     ADC_KPARAM_0 / 10,
+#endif // PRESS_ADC
     ADC_KPARAM_0
 };
 
@@ -102,7 +103,7 @@ static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
   */
 void adcDmaInit(void) {
   // Для синхронной работы требуется четное число каналов
-  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
+//  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
 
   /*## Configuration of DMA ##################################################*/
   /* Enable the peripheral clock of DMA */
@@ -145,14 +146,23 @@ void adcInit(void){
 
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
   ADC1->SQR1 = (ADC_PRM_NUM - 1) << 20;
+#if PRESS_ADC
   ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15);
+#else // PRESS_ADC
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (ALCO_CH << 10);
+#endif // PRESS_ADC
+
   // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
 //  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
 //  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
   ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
+#if PRESS_ADC
   ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+#else // PRESS_ADC
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP3_1;
+#endif // PRESS_ADC
 //  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
   ADC1->CR2 |= ADC_CR2_ADON;
@@ -349,14 +359,19 @@ void adcProcess( uintptr_t arg ){
       case ADC_PRM_VDD:{
     	static uint8_t avgcount;
 
+#if VDD_AVG
         movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVRG_IDX );
         if( avgcount < (VDD_AVRG_IDX * 5) ){
           avgcount++;
           return;
         }
         pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.avgVdd * 1000)/VREFINT_VOL));
+#else   // ADC_AVG_VDD
+        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD] * 1000)/VREFINT_VOL));
+#endif  // ADC_AVG_VDD
         break;
       }
+#if PRESS_ADC
       case ADC_PRM_PRESS:     // Давление Pa = mV
         // Вычисляем напряжение
         if( adcHandle.learnFlag ){
@@ -411,6 +426,7 @@ void adcProcess( uintptr_t arg ){
 
         }
         break;
+#endif // PRESS_ADC
       case ADC_PRM_TERM: {
         // Вычисляем напряжение
         uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);

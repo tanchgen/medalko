@@ -78,11 +78,16 @@ inline void stateOff( void ){
   else {
     if( measRunWait == MSTATE_NON ){
 #if SIMUL
-      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 1 ){
+#if PRESS_ADC
+      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 1 )
+#else // PRESS_ADC
+#error "Simulation is impossible if PRESS data have from I2C"
+#endif // PRESS_ADC
+      {
         return;
       }
 #endif // SIMUL
-      timerMod( &measOnCanTimer, TOUT_1500 );
+      timerMod( &measOnCanTimer, TOUT_1000*15 );
       gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN

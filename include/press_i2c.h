@@ -10,8 +10,8 @@
 
 #include "stm32f10x.h"
 
-#define PRESS_I2C          I2C1
-#define PRESS_I2C_SPEED    400000UL
+#define PRESS_I2C           I2C1
+#define I2C_FS_SPEED            400000UL
 #define PRESS_I2C_ADDR      (0x6D << 1)
 
 #define I2C_WRITE_BIT       0x1

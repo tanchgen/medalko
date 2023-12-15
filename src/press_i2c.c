@@ -6,6 +6,7 @@
  */
 
 #include "main.h"
+#include "measur.h"
 #include "press_i2c.h"
 
 sGpioPin pressPinScl = {GPIOB, 1, GPIO_Pin_6, 6, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
@@ -52,27 +53,59 @@ sI2cTrans i2cTrans[I2C_PACK_MAX];
 volatile uint8_t transCount;
 eI2cState i2cState;
 ePressProgr pressProgr;
-uint32_t pressI2cTout;
+uint32_t pressI2cTout = 0;
 
+uint8_t i2cDataBuf[5];     // Сборник результатов измерений
+int32_t i2cPress;
+uint16_t pressCount;
+int32_t i2cTerm;
 
 // ----------------------------------------------------------------------
+// Инициализация шины
+void i2cInit( I2C_TypeDef * i2c ){
+  uint8_t freq = (rccClocks.PCLK1_Frequency/1000000);
+  uint32_t tmp;
+
+  i2c->CR2 = (i2c->CR2 & ~I2C_CR2_FREQ) | freq;
+  // In FAST MODE I2C
+  i2c->TRISE = (freq * 300) / 1000 + 1;
+
+  // For dutycicle = 2
+  tmp = rccClocks.PCLK1_Frequency / (I2C_FS_SPEED * 3U);
+  if( (tmp & I2C_CCR_CCR) == 0 ){
+    tmp = 1;
+  }
+  i2c->CCR = (i2c->CCR & ~(I2C_CCR_FS | I2C_CCR_DUTY | I2C_CCR_CCR)) | I2C_CCR_FS | tmp;
+
+  i2c->CR1 |= I2C_CR1_PE;
+}
+
+
 // Сброс шины и периферии I2C
 void i2cReset( I2C_TypeDef * i2c ){
   while( i2c->CR1 & (I2C_CR1_START | I2C_CR1_STOP | I2C_CR1_PEC) )
   {}
+
   for( uint8_t i = 0; i < 2; i++ ){
     i2c->CR1 |= I2C_CR1_START;
-    while( i2c->CR1 & I2C_CR1_START)
-    {}
     uDelay( 50 );
+    if( i2c->CR1 & I2C_CR1_START){
+      i2c->CR1 &= ~I2C_CR1_START;
+    }
     i2c->CR1 |= I2C_CR1_STOP;
-    while( i2c->CR1 & I2C_CR1_STOP)
-    {}
     uDelay( 50 );
+    if( i2c->CR1 & I2C_CR1_STOP){
+      i2c->CR1 &= ~I2C_CR1_STOP;
+    }
   }
-  i2c->CR1 &= ~I2C_CR1_PE;
+  i2c->CR1 |= I2C_CR1_SWRST;
   uDelay( 10 );
-  i2c->CR1 |= I2C_CR1_PE;
+  while( ((pressPinScl.gpio->IDR & pressPinScl.pin) == RESET) \
+         || ((pressPinSda.gpio->IDR & pressPinSda.pin) == RESET) )
+  {}
+  i2c->CR1 &= ~I2C_CR1_SWRST;
+
+  i2cInit( i2c );
 }
 
 
@@ -181,7 +214,14 @@ void i2cReadHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
   }
   if( sr1 & I2C_SR1_STOPF ){
     assert_param( trans->rxLen == trans->rxCount );
-    if( --transCount ){
+
+    transCount--;
+
+    // XXX: Применимо только для чтения 1-го байта !!!
+    assert_param( trans->rxLen == 1 );
+    i2cDataBuf[transCount] = trans->rxData[0];
+
+    if( transCount ){
       // Запускаем очередной пакет
       PRESS_I2C->CR1 |= I2C_CR1_START;
     }
@@ -281,6 +321,12 @@ void pressI2cClock( void ){
       // Больше передавать нечего - переходим к следующему пункту программы обмена
       if( ++pressProgr == PRESS_PROGR_NUM ){
         // Дошли до конца списка
+        //Сохраняем значения
+        i2cPress = (i2cDataBuf[4] << 2) | (i2cDataBuf[3] << 1) | i2cDataBuf[2];
+#if !PRESS_ADC
+        pressProc( i2cPress, &pressCount );
+#endif // !PRESS_ADC
+        i2cTerm = (i2cDataBuf[1] << 1) | i2cDataBuf[0];
         pressI2cTout = mTick + 20;
         pressProgr = PRESS_START;
       }
@@ -318,9 +364,6 @@ void pressI2cEnable( void ){
 
 
 void pressI2cInit( void ){
-  uint8_t freq = (rccClocks.PCLK1_Frequency/1000);
-  uint32_t tmp;
-
   // Data setup
   i2cState = I2C_STATE_IDLE;
   transCount = 0;
@@ -332,17 +375,7 @@ void pressI2cInit( void ){
   // I2C periphery setup
   RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
 
-  PRESS_I2C->CR2 = (PRESS_I2C->CR2 & ~I2C_CR2_FREQ) | freq;
-  // In FAST MODE I2C
-  PRESS_I2C->TRISE = (freq * 300) / 1000 + 1;
-
-  tmp = rccClocks.PCLK1_Frequency / (PRESS_I2C_SPEED * 3U);
-  // For dutycicle = 2
-  if( (tmp & I2C_CCR_CCR) == 0 ){
-    tmp = 1;
-  }
-  PRESS_I2C->CCR = (PRESS_I2C->CCR & ~(I2C_CCR_FS | I2C_CCR_DUTY | I2C_CCR_CCR)) | I2C_CCR_FS | tmp;
-
+  PRESS_I2C->CR1 |= I2C_CR1_PE;
   i2cReset( PRESS_I2C );
 
   NVIC_SetPriority(I2C1_EV_IRQn, 0);

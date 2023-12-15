@@ -16,6 +16,7 @@
 
 #include "gpio.h"
 #include "tm.h"
+#include "measur.h"
 
 #define VREFINT_VOL     1200
 
@@ -52,16 +53,20 @@
 #define BAT_ON_TOUT_TOUT  5000  /** < Таймаут на задержку включения батареи CMOS (1мс) */
 #define BAT_ON_TOUT       1000   /** < Таймаут на включение батареи CMOS  (1мс) */
 
-
+#ifndef PRESS_ADC
+#error "PRESS_ADC not defined"
+#endif // PRESS_ADC
 
 #define VDD_AVG           1
 #define TERM_AVG          0
 #define PRESS_AVG         0
 #define ALCO_AVG          0
 
+#if PRESS_ADC
 #if PRESS_AVG
 #define PRESS_AVRG_IDX      10
 #endif //PRESS_AVG
+#endif //PRESS_ADC
 
 #if VDD_AVG
 #define VDD_AVRG_IDX      10
@@ -78,7 +83,9 @@
 typedef enum {
   ADC_PRM_VDD,
   ADC_PRM_TERM,
+#if PRESS_ADC
   ADC_PRM_PRESS,
+#endif // PRESS_ADC
   ADC_PRM_ALCO,
   ADC_PRM_NUM
 } eAdcPrm;
