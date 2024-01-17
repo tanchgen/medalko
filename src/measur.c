@@ -37,6 +37,7 @@ sMeasur measDev;
 int32_t pressAvg;
 
 // ================ Private Function =============================
+void pulseTimInit( TIM_TypeDef * portim, uint16_t tout );
 // ==================================================================
 
 // ----------------------- USB transfer functions ----------------------
@@ -126,6 +127,9 @@ size_t sendTmEnd( uint8_t * buf ){
 // -------------------- Received parcing -----------------------------------------------
 uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   uint32_t rxlen;
+  uint32_t tmpPress;
+  uint32_t tmpPulse;
+  uint32_t tmpCont;
 
 #if 0     // ------------------- Низкий уровень -----------------------------------
   eRxPrm rxPrmFlag = RX_PRM_NUM;
@@ -165,7 +169,13 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
     rxBuf++;
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
-      (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+      (uint*)&tmpPress, (uint*)&tmpPulse, (uint*)&tmpCont );
+    measDev.prmPressMin = tmpPress;
+    if( measDev.relPulse != tmpPulse ){
+      measDev.relPulse = tmpPulse;
+      pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
+    }
+    measDev.prmContinuous = tmpCont;
 #endif  // ---------------------------------------------------------------------
 
   return rxlen;
