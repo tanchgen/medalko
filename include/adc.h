@@ -62,7 +62,7 @@
 
 #define VDD_AVG           1
 #define TERM_AVG          0
-#define PRESS_AVG         0
+#define PRESS_AVG         1
 #define ALCO_AVG          0
 
 #if PRESS_AVG

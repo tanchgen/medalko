@@ -353,7 +353,6 @@ void adcProcess( uintptr_t arg ){
         break;
       }
       case ADC_PRM_PRESS:     // Давление Pa = mV
-        // Вычисляем напряжение
         if( adcHandle.learnFlag ){
 //          if( ++adcHandle.learnCount > LEARN_COUNT_MIN ){
             if( ++adcHandle.pressCount <= LEARN_COUNT_MAX ){
@@ -374,8 +373,8 @@ void adcProcess( uintptr_t arg ){
 
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
           prm = pData->prm;
-          movAvgS( (int16_t *)&prm, tmpprm );
-          prm = tmpprm;
+          movAvgS( (int16_t *)&prm, tmpprm, VDD_AVRG_IDX );
+          pData->prm = prm;
 #else //PRESS_AVG  || ALCO_AVG
           prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG

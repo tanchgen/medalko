@@ -383,7 +383,8 @@ void Manage_EP1_Jumbo()			{
 //Interrupt functions.
 
 //Function called when an USB reset, error or transmission complete happens. Automatically manage USB reset, error or transmission complete events.
-void USB_LP_CAN1_RX0_IRQHandler(void)	{ if(USB_ISTR & 0x0400) 	{						//If received a USB_RESET..
+void USB_LP_CAN1_RX0_IRQHandler(void)	{
+  if(USB_ISTR & 0x0400) 	{						//If received a USB_RESET..
 		USB_ISTR  = 0xFBFF;							//Clear flag USB_RESET.
 		USB_ENP0R = 0x8280;							//Set endpoint 0 control register to default value. EP0 type = CONTROL.
 		USB_ENP1R = 0x8081;							//Set endpoint 1 control register to default value. EP1 type = BULK. 
@@ -395,7 +396,7 @@ void USB_LP_CAN1_RX0_IRQHandler(void)	{ if(USB_ISTR & 0x0400) 	{						//If recei
 		EN_RX_EP2();								//Set endpoint 2 reception to VALID.
 		DIS_TX_EP2();								//Set endpoint 2 transmission to NAK.
 		USB_DADDR = 0x0080;							//USB ON. ADDRESS = 0.
-		}
+	}
 	
 	if(USB_ISTR & 0x2000)	{						//If an error occurred..
 		USB_ISTR	= 0xDFFF;		}				//Clear error flag.
