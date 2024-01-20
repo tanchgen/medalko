@@ -175,7 +175,8 @@ void adcInit(void){
   * @retval None
   */
 static inline void adcGpioInit( void ){
-
+  // Настройка разрешения алкодатчика
+  gpioPinSetup( &gpioPinAlcoRes );
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );

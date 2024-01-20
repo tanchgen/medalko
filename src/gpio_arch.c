@@ -11,9 +11,10 @@
   extern uint32_t simulStart;
 #endif // SIMUL
 
+sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 8, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_SET, Bit_SET, RESET };
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinBuzz = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin gpioPinUsbDp = {GPIOA, 0, GPIO_Pin_12, 12, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
@@ -291,30 +292,30 @@ void keyTimInit( TIM_TypeDef * keytim ){
 //}
 
 
-/* ZOOMER_TIM init function */
-void zoomTimInit( void ){
-  ZOOM_TIM_CLK_EN;
-  gpioPinSetup( &gpioPinZoom );
+/* BUZZER_TIM init function */
+void buzzTimInit( void ){
+  BUZZ_TIM_CLK_EN;
+  gpioPinSetup( &gpioPinBuzz );
 
-  ZOOM_TIM->PSC = (720-1);
-  ZOOM_TIM->ARR = ((rccClocks.PCLK2_Frequency/(ZOOM_TIM->PSC + 1)) / 1000) - 1;      // Частота ШИМ 1кГц
-  ZOOM_TIM->CCR1 = (ZOOM_TIM->ARR + 1) / 2;
+  BUZZ_TIM->PSC = (720-1);
+  BUZZ_TIM->ARR = ((rccClocks.PCLK2_Frequency/(BUZZ_TIM->PSC + 1)) / 1000) - 1;      // Частота ШИМ 1кГц
+  BUZZ_TIM->CCR1 = (BUZZ_TIM->ARR + 1) / 2;
 
-  ZOOM_TIM->CR2 |= TIM_CR2_OIS1;
+  BUZZ_TIM->CR2 |= TIM_CR2_OIS1;
   // ШИМ режим 110, CCR1 - preload
-  ZOOM_TIM->CCMR1 = (ZOOM_TIM->CCMR1 & ~TIM_CCMR1_CC1S) | TIM_CCMR1_OC1M_2  | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1PE;
-  ZOOM_TIM->CCER = TIM_CCER_CC1E;
+  BUZZ_TIM->CCMR1 = (BUZZ_TIM->CCMR1 & ~TIM_CCMR1_CC1S) | TIM_CCMR1_OC1M_2  | TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1PE;
+  BUZZ_TIM->CCER = TIM_CCER_CC1E;
   // Контроль выводов при выключении таймера:
-  ZOOM_TIM->BDTR = TIM_BDTR_AOE | TIM_BDTR_MOE | TIM_BDTR_OSSI | TIM_BDTR_OSSR;
+  BUZZ_TIM->BDTR = TIM_BDTR_AOE | TIM_BDTR_MOE | TIM_BDTR_OSSI | TIM_BDTR_OSSR;
 }
 
 
-void zoomOn( void ){
-  // ZOOM_TIM->CR1 |= TIM_CR1_CEN;
+void buzzOn( void ){
+  // BUZZ_TIM->CR1 |= TIM_CR1_CEN;
 }
 
-void zoomOff( void ){
-  ZOOM_TIM->CR1 &= ~TIM_CR1_CEN;
+void buzzOff( void ){
+  BUZZ_TIM->CR1 &= ~TIM_CR1_CEN;
 }
 
 
@@ -409,7 +410,7 @@ void gpioInit( void ){
 #endif // PIN_TEST_EN
 
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
-  zoomTimInit();
+  buzzTimInit();
 
   // USB_HOST RESET
   gpioPinSetup( &gpioPinUsbDp );

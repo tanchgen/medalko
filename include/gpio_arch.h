@@ -23,10 +23,10 @@
 /** Тайм-аут процедуры антидребезга входов EXTI. */
 #define KEY_DEBOUNCE_TOUT  50
 
-#define ZOOM_TIM          TIM1
-#define ZOOM_TIM_CLK_EN   (RCC->APB2ENR |= RCC_APB2ENR_TIM1EN)
-#define ZOOM_TIM_IRQn     TIM1_UP_IRQn
-#define ZOOM_TIM_IRQH     TIM1_UP_IRQHandler
+#define BUZZ_TIM          TIM1
+#define BUZZ_TIM_CLK_EN   (RCC->APB2ENR |= RCC_APB2ENR_TIM1EN)
+#define BUZZ_TIM_IRQn     TIM1_UP_IRQn
+#define BUZZ_TIM_IRQH     TIM1_UP_IRQHandler
 
 #define KEY_TIM          TIM5
 #define KEY_TIM_CLK_EN   RCC_APB1ENR_TIM5EN
@@ -248,9 +248,10 @@ extern FlagStatus measurRun;
 /** Состояние уровня запуска системы */
 extern eMcuState measurState;
 
+extern sGpioPin gpioPinAlcoRes;
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
-extern sGpioPin gpioPinZoom;
+extern sGpioPin gpioPinBuzz;
 extern sGpioPin gpioPinTest;
 
 // ------------------- LEDS -----------------------
@@ -282,8 +283,8 @@ extern struct timer_list  measOnCanTimer;
 
 
 // ===========================================================================================================
-void zoomOn( void );
-void zoomOff( void );
+void buzzOn( void );
+void buzzOff( void );
 
 void gpioIrqHandler5_9( uint32_t pin );
 void gpioIrqHandler10_15( uint32_t pin );
