@@ -25,8 +25,8 @@ uint8_t sendBuf[96];
 
 uint32_t tmpTout = 0;
 
-const uint16_t measPressLimMin = 90;
-const float measPressLimMax = 300;
+const uint16_t measPressLimMin = PRESS_LIMIT_MIN;
+const float measPressLimMax = PRESS_LIMIT_MIN * 3;
 const float measAlkoLimMin = 15.0;
 
 sMeasur measDev;
