@@ -72,15 +72,21 @@ static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
 #if PRESS_AVG  || ALCO_AVG
 // Расчет скользящего среднего беззнакового
 static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
-  const int32_t a = 2000 / (1+ kavg);
+  const int32_t a = 20000 / (1+ kavg);
   int32_t tmp = *avg;
-  *avg = (int16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
+  *avg = (int16_t)((pt * a + (tmp * (10000 - a)) + 5000)/10000);
 }
 #endif //PRESS_AVG  || ALCO_AVG
 
+// Расчет скользящего среднего беззнакового
+static inline void movAvgF( float *avg, float pt, const uint8_t kavg  ){
+  const float a = 2.0 / (1.0 + kavg);
+  float tmp = *avg;
+  *avg = (pt * a + (tmp * (1 - a)) );
+}
 
 //inline void adcDataReset( sAdcHandle * adc, eAdcPrm num ){
-//  timerModArg( &adcPeakTimer, TOUT_100, num );
+//  timerModArg( &adcPeakTimer, TOUT_100, num );adcHandle.pressAvg -
 //  adc->adcOk = RESET;
 //  adc->adcData[num].u16status = 0;
 //}
@@ -176,6 +182,7 @@ void adcInit(void){
   */
 static inline void adcGpioInit( void ){
 
+  gpioPinSetup( &gpioPinAlcoRes );
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );
@@ -342,14 +349,16 @@ void adcProcess( uintptr_t arg ){
 
     switch ( i ){
       case ADC_PRM_VDD:{
+#if VDD_AVG
     	static uint8_t avgcount;
 
-        movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVRG_IDX );
-        if( avgcount < (VDD_AVRG_IDX * 5) ){
-          avgcount++;
-          return;
-        }
-        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.avgVdd * 1000)/VREFINT_VOL));
+      movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
+      if( avgcount < (VDD_AVRG_IDX * 5) ){
+        avgcount++;
+        return;
+      }
+#endif //VDD_AVG
+        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD] * 1000)/VREFINT_VOL));
         break;
       }
       case ADC_PRM_PRESS:     // Давление Pa = mV
@@ -374,13 +383,25 @@ void adcProcess( uintptr_t arg ){
 
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
           prm = pData->prm;
-          movAvgS( (int16_t *)&prm, tmpprm );
-          prm = tmpprm;
+          movAvgS( (int16_t *)&prm, tmpprm, PRESS_AVG_IDX );
+//          prm = tmpprm;
 #else //PRESS_AVG  || ALCO_AVG
           prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
+          if( prm < measDev.pressLimMinStop) {
+            static float ftmp;
+
+            if( ftmp == 0 ){
+              ftmp = adcHandle.pressAvg;
+            }
+
+            movAvgF( &ftmp, adcHandle.adcVprm[ADC_PRM_PRESS], PRESS_AVG_IDX * 5 );
+            adcHandle.pressAvg = lrint(ftmp);
+          }
+
           pData->prm = prm;
+
 #else // SIMUL
 //          if( pData->prm == 0 ){
 //            pData->prm = prm;
