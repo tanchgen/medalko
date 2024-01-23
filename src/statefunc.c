@@ -81,7 +81,7 @@ inline void stateOff( void ){
       }
 #endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1500 );
-      gpioPinSetNow( &gpioPinRelEn );
+      gpioPinResetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);

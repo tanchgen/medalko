@@ -6,7 +6,7 @@
 #if SIMUL
 #define USB_SIMUL     0
 #else
-#define USB_SIMUL     1
+#define USB_SIMUL     0
 #endif // SIMUL
 
 //Registers definitions.

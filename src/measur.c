@@ -28,7 +28,7 @@ uint8_t sendBuf[96];
 
 uint32_t tmpTout = 0;
 
-const uint16_t measPressLimMin = PRESS_LIMIT_MIN;
+//const uint16_t measPressLimMin = PRESS_LIMIT_MIN;
 const float measPressLimMax = PRESS_LIMIT_MIN * 3;
 const float measAlkoLimMin = 15.0;
 
@@ -45,7 +45,7 @@ size_t sendTmPrep( uint8_t * buf ){
   size_t sz = 0;
 
   if( measDev.sendProto == PROTO_JSON ){
-    sz = sprintf( (char*)buf, "{\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":[", \
+    sz = sprintf( (char*)buf, "{\"alcoData\":{\"startTime\":%ld.%ld,\"start2Time\":%ld.%ld,\"measData\":[\n", \
                   measDev.secsStart, measDev.msecStart, measDev.secsStart2, measDev.msecStart2 );
   }
   else {
@@ -114,10 +114,11 @@ size_t sendTmEnd( uint8_t * buf ){
 
   // Закрывающие скобки
   if( measDev.sendProto == PROTO_JSON ){
-    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}\n}\n", measDev.secsStop, measDev.msecStop );
+    sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}}\n\n", measDev.secsStop, measDev.msecStop );
   }
   else {
-    sz = 0;
+    *buf = '\n';
+    sz = 1;
   }
 
   return sz;
@@ -196,14 +197,14 @@ uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
 // Обработка результата ADC_PRESS
 void pressProc( int32_t press, uint16_t * count ){
   if( measState == MEASST_OFF ){
-      if( (press > measPressLimMin) && onCan ){
+      if( (press > measDev.pressLimMinStart) && onCan ){
         // Давление выше минимального порога - Запускаем процесс забора проб
         measOnNeed = SET;
         measDev.tout0 = mTick;
       }
   }
   else if( measState < MEASST_END_PROB ){
-    if( (measDev.status.relEnd == RESET) && (press < measPressLimMin) ){
+    if( (measDev.status.relEnd == RESET) && (press < measDev.pressLimMinStop) ){
       if( measDev.status.pressFaultLow == RESET ){
         measDev.status.pressFaultLow = SET;
         measRunWait = MSTATE_NON;
@@ -227,7 +228,7 @@ void pressProc( int32_t press, uint16_t * count ){
           else {
             float tmp;
 
-            tmp = (((press - measPressLimMin) * 1000)/(measPressLimMax - measPressLimMin));
+            tmp = (((press - measDev.pressLimMinStop) * 1000)/(measPressLimMax - measDev.pressLimMinStop));
             tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
             tmp /= 1000;
             tmp = MEAS_TIME_MAX - tmp;
@@ -326,8 +327,6 @@ void measClock( void ){
           break;
         case SEND_END:
           size = 0;
-          measDev.status.sendStart = RESET;
-          measDev.status.sent = SET;
           break;
         case SEND_CONT:
           size = sendTmCont( sendBuf );
@@ -341,6 +340,9 @@ void measClock( void ){
       if( size != 0 ){
 #ifdef TRACE
         trace_write( (char*)sendBuf, size );
+//        if( measDev.sendProto == PROTO_JSON ){
+//          trace_write("\n", 1);
+//        }
         tmpTout = mTick + 10;
 #endif // TRACE
         assert_param( size <= 96 );
@@ -351,7 +353,10 @@ void measClock( void ){
 #endif // SIMUL
         sendTout = mTick + USB_SEND_TOUT;
       }
-      else if ( sendState == SEND_END ){
+      else {
+        assert_param( sendState == SEND_END );
+        measDev.status.sendStart = RESET;
+        measDev.status.sent = SET;
         sendState = SEND_START;
         sendCount = 0;
         sendTout = 0;
@@ -400,7 +405,10 @@ void measInit( void ){
 //    assert_param( tmpAd != NULL );
 //  }
 //  measDev.alcoData = tmpAd;
+  measDev.sendProto = PROTO_CSV;
   measDev.relPulse = REL_PULSE_DEF;
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
   buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
+  measDev.pressLimMinStart = PRESS_LIMIT_MIN;
+  measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
 }
