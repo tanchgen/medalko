@@ -57,27 +57,25 @@
 #error "PRESS_ADC not defined"
 #endif // PRESS_ADC
 
-#define VDD_AVG           1
+#define VDD_AVG           0
 #define TERM_AVG          0
-#define PRESS_AVG         0
+#define PRESS_AVG         1
 #define ALCO_AVG          0
 
-#if PRESS_ADC
-#if PRESS_AVG
-#define PRESS_AVRG_IDX      10
-#endif //PRESS_AVG
-#endif //PRESS_ADC
-
 #if VDD_AVG
-#define VDD_AVRG_IDX      10
+#define VDD_AVG_IDX      10
 #endif //VDD_AVG
 
+#if PRESS_AVG
+#define PRESS_AVG_IDX      10
+#endif //ALCO_AVG
+
 #if ALCO_AVG
-#define ALCO_AVRG_IDX      10
+#define ALCO_AVG_IDX      10
 #endif //ALCO_AVG
 
 #if TERM_AVG
-#define TERM_AVRG_IDX      10
+#define TERM_AVG_IDX      10
 #endif //TERM_AVG
 
 typedef enum {

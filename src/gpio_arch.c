@@ -15,6 +15,9 @@ sGpioPin gpioPinAlcoRst = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPUL
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinZoom = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_AFPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+
+sGpioPin gpioPinUsbDp = {GPIOA, 0, GPIO_Pin_12, 12, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 #if PIN_TEST_EN
 sGpioPin gpioPinTest = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
@@ -373,7 +376,7 @@ void gpioClock( void ){
   if( measDev.status.relStart ){
     measDev.tout = mTick + measDev.relPulse;
     // Отключаем источник питания от соленоида
-    gpioPinResetNow( &gpioPinRelEn );
+    gpioPinSetNow( &gpioPinRelEn );
     gpioPulse( &gpioPinRelOn );
     measDev.status.relStart = RESET;
   }
@@ -397,7 +400,7 @@ void gpioEnable( void ) {
 #endif
 
   timerMod( &measOnCanTimer, TOUT_1500 );
-  gpioPinSetNow( &gpioPinRelEn );
+  gpioPinResetNow( &gpioPinRelEn );
 }
 
 /**
@@ -422,6 +425,11 @@ void gpioInit( void ){
 
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();
+
+  // USB_HOST RESET
+  gpioPinSetup( &gpioPinUsbDp );
+  mDelay( 200 );
+  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
 
   // ----------- TIMERS ---------------------------
   timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
