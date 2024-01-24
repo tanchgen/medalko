@@ -69,6 +69,8 @@ inline void stateOff( void ){
     assert_param( measDev.status.pressOk == RESET );
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
+    // Включение АЛКОМЕТРА
+    gpioPinResetNow( &gpioPinAlcoRst );
     measRunWait = MSTATE_NON;
     trace_printf(":On begin\n");
     measState++;
@@ -76,12 +78,18 @@ inline void stateOff( void ){
   else {
     if( measRunWait == MSTATE_NON ){
 #if SIMUL
-      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 1 ){
+#if PRESS_ADC
+      if( adcHandle.adcData[ADC_PRM_PRESS].prm > 1 )
+#else // PRESS_ADC
+#error "Simulation is impossible if PRESS data have from I2C"
+#endif // PRESS_ADC
+      {
         return;
       }
 #endif // SIMUL
-      timerMod( &measOnCanTimer, TOUT_1500 );
-      gpioPinSetNow( &gpioPinRelEn );
+      timerMod( &measOnCanTimer, TOUT_1000*15 );
+//      timerMod( &measOnCanTimer, TOUT_1500 );
+      gpioPinResetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
@@ -124,6 +132,8 @@ inline void stateStart( void ){
           trace_printf(":Solenoid stop\n");
 #endif
           measDev.tout = mTick + ALCO_TOUT_MIN;
+          // Максимальное время измерения ALCO
+          timerMod( &alcoOffTimer, ALCO_TOUT_MAX );
           measRunWait = MSTATE_ON;
         }
         break;

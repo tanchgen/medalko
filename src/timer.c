@@ -41,25 +41,33 @@ static struct list_head  _timers_queue = LIST_HEAD_INIT(_timers_queue);
 //#endif
 //}
 
-void mDelay(const uint32_t msecs)
-{
+#define DWT_CONTROL *(volatile unsigned long *)0xE0001000
+#define SCB_DEMCR   *(volatile unsigned long *)0xE000EDFC
+
+
+void dwtInit(void) {
+    SCB_DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // разрешаем использовать счётчик
+    DWT_CONTROL |= DWT_CTRL_CYCCNTENA_Msk;   // запускаем счётчик
+}
+
+void uDelay( const uint32_t usecs) {
+    uint32_t usTick =  usecs * (SystemCoreClock / 1000000); // получаем кол-во тактов за 1 мкс и умножаем на наше значение
+    DWT->CYCCNT = 0U; // обнуляем счётчик
+    while(DWT->CYCCNT < usTick);
+}
+
+void mDelay(const uint32_t msecs) {
 	uint32_t  tout = mTick + msecs;
 
 	while( tout > mTick )
   {}
 }
 
-void init_timer(struct timer_list *timer)
-{
-	timer->entry.next = NULL;
-}
 
-void timerSetup(struct timer_list *timer, void (*function)(uintptr_t), uintptr_t data)
-{
+void timerSetup(struct timer_list *timer, void (*function)(uintptr_t), uintptr_t data) {
 	timer->function = function;
 	timer->data     = data;
-
-	init_timer(timer);
+	timer->entry.next = NULL;
 }
 
 /**
@@ -254,40 +262,7 @@ void timersClock( void ){
 	}
 }
 
-/**
-  * @brief  Обработка данных подсистемы таймеров.
-  *
-  * @param[in]  self  дескриптор интерфейса
-  *
-  * @retval none
-  */
-void timerClock( void ){
-  static uint32_t     _prev_jiffies;
-  struct list_head    work_list;
-  struct list_head   *curr, *next;
-  struct timer_list  *timer;
 
-  if (time_after(mTick, _prev_jiffies)) {
-    _prev_jiffies = mTick;
-
-    INIT_LIST_HEAD(&work_list);
-
-    list_for_each_safe(curr, next, &_timers_queue) {
-      timer = list_entry(curr, struct timer_list, entry);
-
-      if (time_after(_prev_jiffies, timer->expires))
-        list_move_tail(&timer->entry, &work_list);
-    }
-
-    while (!list_empty(&work_list)) {
-      timer = list_first_entry(&work_list, struct timer_list, entry);
-
-      _detach_timer(timer, true);
-
-      if (timer->function != NULL)
-        timer->function(timer->data);
-    }
-  }
+void timersInit( void ){
+  dwtInit();
 }
-
-

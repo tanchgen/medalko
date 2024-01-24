@@ -9,7 +9,6 @@
 #include "main.h"
 #include "adc.h"
 #include "gpio_arch.h"
-#include "measur.h"
 
 #define R1          10000UL       // Сопротивление резистора R1
 #define LN_RT25     9.21034     // ln(Rt) при 25гр.Ц
@@ -18,6 +17,9 @@
 #define B25_85      3934
 #define B25_100     3944
 #define _1_298K     0.0033557   // Обратная величина от (25 + 273)гр.Ц
+
+#define VAD_LIM_MIN   10        // Минимальное напряжение накачки помпы
+#define VAD_LIM_MAX   20        // Максимальное напряжение накачки помпы
 
 //#define PRESS_NUL   1250        // Напряжение нулевого давления
 
@@ -33,9 +35,16 @@ sAdcHandle adcHandle = {
   .learnFlag = SET,
 };
 
+#define VDD_CH        17    // VREFINT_CHANNEL
+#define TEMP_CH       0     // PA0
+#define PRESS_CH      1     // PA1
+#define ALCO_CH       2     // PA2
+#define VAD_CH        6     // PA6
+
 sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcVad = {GPIOA, 0, GPIO_Pin_6, 6, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 
 #define ADC_KPARAM_0    (4096UL)   // Делитель для VBAT: 10/20
@@ -43,8 +52,11 @@ sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, 
 const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0,
     ADC_KPARAM_0,
+#if PRESS_ADC
     ADC_KPARAM_0 / 10,
-    ADC_KPARAM_0
+#endif // PRESS_ADC
+    ADC_KPARAM_0,
+    ADC_KPARAM_0 / 10,
 };
 
 
@@ -72,15 +84,21 @@ static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
 #if PRESS_AVG  || ALCO_AVG
 // Расчет скользящего среднего беззнакового
 static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
-  const int32_t a = 2000 / (1+ kavg);
+  const int32_t a = 20000 / (1+ kavg);
   int32_t tmp = *avg;
-  *avg = (int16_t)((pt * a + (tmp * (1000 - a)) + 500)/1000);
+  *avg = (int16_t)((pt * a + (tmp * (10000 - a)) + 5000)/10000);
 }
 #endif //PRESS_AVG  || ALCO_AVG
 
+// Расчет скользящего среднего беззнакового
+static inline void movAvgF( float *avg, float pt, const uint8_t kavg  ){
+  const float a = 2.0 / (1.0 + kavg);
+  float tmp = *avg;
+  *avg = (pt * a + (tmp * (1 - a)) );
+}
 
 //inline void adcDataReset( sAdcHandle * adc, eAdcPrm num ){
-//  timerModArg( &adcPeakTimer, TOUT_100, num );
+//  timerModArg( &adcPeakTimer, TOUT_100, num );adcHandle.pressAvg -
 //  adc->adcOk = RESET;
 //  adc->adcData[num].u16status = 0;
 //}
@@ -97,7 +115,7 @@ static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
   */
 void adcDmaInit(void) {
   // Для синхронной работы требуется четное число каналов
-  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
+//  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
 
   /*## Configuration of DMA ##################################################*/
   /* Enable the peripheral clock of DMA */
@@ -140,14 +158,23 @@ void adcInit(void){
 
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
   ADC1->SQR1 = (ADC_PRM_NUM - 1) << 20;
-  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15);
+#if PRESS_ADC
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15) | (VAD_CH << 20);
+#else // PRESS_ADC
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (ALCO_CH << 10) | (VAD_CH << 15);
+#endif // PRESS_ADC
+
   // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
 //  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
 //  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
   ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
-  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+#if PRESS_ADC
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP6_1;
+#else // PRESS_ADC
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1;
+#endif // PRESS_ADC
 //  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
   ADC1->CR2 |= ADC_CR2_ADON;
@@ -176,6 +203,7 @@ void adcInit(void){
   */
 static inline void adcGpioInit( void ){
 
+  gpioPinSetup( &gpioPinAlcoRes );
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );
@@ -342,16 +370,19 @@ void adcProcess( uintptr_t arg ){
 
     switch ( i ){
       case ADC_PRM_VDD:{
+#if VDD_AVG
     	static uint8_t avgcount;
 
-        movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVRG_IDX );
-        if( avgcount < (VDD_AVRG_IDX * 5) ){
-          avgcount++;
-          return;
-        }
-        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.avgVdd * 1000)/VREFINT_VOL));
+      movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
+      if( avgcount < (VDD_AVRG_IDX * 5) ){
+        avgcount++;
+        return;
+      }
+#endif //VDD_AVG
+        pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD] * 1000)/VREFINT_VOL));
         break;
       }
+#if PRESS_ADC
       case ADC_PRM_PRESS:     // Давление Pa = mV
         // Вычисляем напряжение
         if( adcHandle.learnFlag ){
@@ -374,13 +405,25 @@ void adcProcess( uintptr_t arg ){
 
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
           prm = pData->prm;
-          movAvgS( (int16_t *)&prm, tmpprm );
-          prm = tmpprm;
+          movAvgS( (int16_t *)&prm, tmpprm, PRESS_AVG_IDX );
+//          prm = tmpprm;
 #else //PRESS_AVG  || ALCO_AVG
           prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
+          if( prm < measDev.pressLimMinStop) {
+            static float ftmp;
+
+            if( ftmp == 0 ){
+              ftmp = adcHandle.pressAvg;
+            }
+
+            movAvgF( &ftmp, adcHandle.adcVprm[ADC_PRM_PRESS], PRESS_AVG_IDX * 5 );
+            adcHandle.pressAvg = lrint(ftmp);
+          }
+
           pData->prm = prm;
+
 #else // SIMUL
 //          if( pData->prm == 0 ){
 //            pData->prm = prm;
@@ -406,6 +449,7 @@ void adcProcess( uintptr_t arg ){
 
         }
         break;
+#endif // PRESS_ADC
       case ADC_PRM_TERM: {
         // Вычисляем напряжение
         uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
@@ -414,7 +458,7 @@ void adcProcess( uintptr_t arg ){
         termProc( adcHandle.adcData[i].prm );
         break;
       }
-      case ADC_PRM_ALCO:      // Просто напряжение
+      case ADC_PRM_ALCO:
         // Вычисляем напряжение
 #if !SIMUL
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
@@ -428,6 +472,18 @@ void adcProcess( uintptr_t arg ){
         }
 #endif // SIMUL
         alcoProc( adcHandle.adcData[i].prm );
+        break;
+      case ADC_PRM_VAD:      // Напряжение накачки помпы
+        // Вычисляем напряжение
+        adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+        if( adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit ){
+          // Выключаем DC-DC накачки помпы
+          gpioPinSetNow( &gpioPinRelEn );
+        }
+        else if( adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit ){
+          // Включаем DC-DC накачки помпы
+          gpioPinResetNow( &gpioPinRelEn );
+        }
         break;
       default:
         break;
@@ -482,6 +538,9 @@ void adcMainInit( void ){
   for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
     adcPrmInit( &(adcHandle.adcData[i]) );
   }
+
+  adcHandle.adcData[ADC_PRM_VAD].prmLowAlrmLimit = VAD_LIM_MIN;
+  adcHandle.adcData[ADC_PRM_VAD].prmHiAlrmLimit = VAD_LIM_MAX;
 
 }
 

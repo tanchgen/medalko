@@ -16,14 +16,9 @@
 
 #include "gpio.h"
 #include "tm.h"
+#include "measur.h"
 
 #define VREFINT_VOL     1200
-
-#define ADC_CH_NUM    4
-#define VDD_CH        17
-#define TEMP_CH       0
-#define PRESS_CH      1
-#define ALCO_CH       2
 
 //#define LEARN_COUNT_MIN   100
 #define LEARN_COUNT_MAX   200
@@ -58,34 +53,39 @@
 #define BAT_ON_TOUT_TOUT  5000  /** < Таймаут на задержку включения батареи CMOS (1мс) */
 #define BAT_ON_TOUT       1000   /** < Таймаут на включение батареи CMOS  (1мс) */
 
+#ifndef PRESS_ADC
+#error "PRESS_ADC not defined"
+#endif // PRESS_ADC
 
-
-#define VDD_AVG           1
+#define VDD_AVG           0
 #define TERM_AVG          0
-#define PRESS_AVG         0
+#define PRESS_AVG         1
 #define ALCO_AVG          0
 
-#if PRESS_AVG
-#define PRESS_AVRG_IDX      10
-#endif //PRESS_AVG
-
 #if VDD_AVG
-#define VDD_AVRG_IDX      10
+#define VDD_AVG_IDX      10
 #endif //VDD_AVG
 
+#if PRESS_AVG
+#define PRESS_AVG_IDX      10
+#endif //ALCO_AVG
+
 #if ALCO_AVG
-#define ALCO_AVRG_IDX      10
+#define ALCO_AVG_IDX      10
 #endif //ALCO_AVG
 
 #if TERM_AVG
-#define TERM_AVRG_IDX      10
+#define TERM_AVG_IDX      10
 #endif //TERM_AVG
 
 typedef enum {
   ADC_PRM_VDD,
   ADC_PRM_TERM,
+#if PRESS_ADC
   ADC_PRM_PRESS,
+#endif // PRESS_ADC
   ADC_PRM_ALCO,
+  ADC_PRM_VAD,
   ADC_PRM_NUM
 } eAdcPrm;
 
