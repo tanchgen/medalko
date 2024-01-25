@@ -271,12 +271,6 @@ extern sGpioPin gpioPinTest;
 //
 ///** Структура дескриптора таймера таймаута восстановления после ошибки */
 //extern struct timer_list  pwrOnCanTimer;
-///** Структура дескриптора таймера таймаута восстановления после ошибки FPGA*/
-//extern struct timer_list  fpgaOnCanTimer;
-//
-///** Структура дескриптора таймера таймаута ожидания отклика на FPGA_RST*/
-//extern struct timer_list  mzuRstTestTimer;
-
 extern struct timer_list  alcoOffTimer;
 extern struct timer_list  measOnCanTimer;
 
