@@ -166,9 +166,11 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
       (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
-  measDev.prmPressMin = max( measDev.prmPressMin, 30 );  // Нижний порог = 20
+  measDev.prmPressMin = max( measDev.prmPressMin, 40 );  // Нижний порог = 30
   measDev.prmPumpPeriod = max( measDev.prmPumpPeriod, 10000 );  // Минимальный интервал = 10с
   measDev.prmContinuous = (measDev.prmContinuous)? SET : RESET;  // Или 0, или 1
+  measDev.pressLimMinStart = measDev.prmPressMin;
+  measDev.pressLimMinStop = measDev.prmPressMin - 10;
 
 #endif  // ---------------------------------------------------------------------
 
@@ -430,7 +432,7 @@ void measClock( void ){
 void measPrmClean( void ){
   measDev.prmContinuous = 0;
   measDev.prmPumpPeriod = 0;
-  measDev.prmPressMin = measPressLimMin;
+  measDev.prmPressMin = PRESS_LIMIT_MIN;
 }
 
 

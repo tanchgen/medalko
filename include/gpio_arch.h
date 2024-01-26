@@ -251,7 +251,7 @@ extern eMcuState measurState;
 extern sGpioPin gpioPinAlcoRst;
 extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
-extern sGpioPin gpioPinZoom;
+extern sGpioPin gpioPinBuzz;
 //extern sGpioPin gpioPinTest;
 extern sGpioPin gpioPinAlcoRes;
 
@@ -282,9 +282,6 @@ extern struct timer_list  alcoOffTimer;
 extern struct timer_list  measOnCanTimer;
 
 // ===========================================================================================================
-void zoomOn( void );
-void zoomOff( void );
-
 void gpioIrqHandler5_9( uint32_t pin );
 void gpioIrqHandler10_15( uint32_t pin );
 /**
