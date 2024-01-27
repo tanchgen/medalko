@@ -18,8 +18,8 @@
 #define B25_100     3944
 #define _1_298K     0.0033557   // Обратная величина от (25 + 273)гр.Ц
 
-#define VAD_LIM_MIN   10        // Минимальное напряжение накачки помпы
-#define VAD_LIM_MAX   20        // Максимальное напряжение накачки помпы
+#define VAD_LIM_MIN   10000        // mV Минимальное напряжение накачки помпы
+#define VAD_LIM_MAX   20000        // mV Максимальное напряжение накачки помпы
 
 //#define PRESS_NUL   1250        // Напряжение нулевого давления
 
@@ -57,6 +57,7 @@ const uint16_t adcKprm[ADC_PRM_NUM] = {
 #if PRESS_ADC
     ADC_KPARAM_0 / 10,
 #endif // PRESS_ADC
+    ADC_KPARAM_0,
     ADC_KPARAM_0,
     ADC_KPARAM_0 / 10,
 };
@@ -463,6 +464,7 @@ void adcProcess( uintptr_t arg ){
         break;
       }
       case ADC_PRM_ALCO:
+      case ADC_PRM_ALCO2:
         // Вычисляем напряжение
 #if !SIMUL
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
@@ -480,11 +482,15 @@ void adcProcess( uintptr_t arg ){
       case ADC_PRM_VAD:      // Напряжение накачки помпы
         // Вычисляем напряжение
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
-        if( adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit ){
+        if( (adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit) \
+            && gpioPinRelEn.state )
+        {
           // Выключаем DC-DC накачки помпы
           gpioPinResetNow( &gpioPinRelEn );
         }
-        else if( adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit ){
+        else if( (adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit) \
+            && (gpioPinRelEn.state == Bit_RESET) )
+        {
           // Включаем DC-DC накачки помпы
           gpioPinSetNow( &gpioPinRelEn );
         }
