@@ -207,6 +207,7 @@ static inline void adcGpioInit( void ){
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );
+  gpioPinSetup( &gpioPinAdcVad );
 }
 
 
@@ -478,11 +479,11 @@ void adcProcess( uintptr_t arg ){
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
         if( adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit ){
           // Выключаем DC-DC накачки помпы
-          gpioPinSetNow( &gpioPinRelEn );
+          gpioPinResetNow( &gpioPinRelEn );
         }
         else if( adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit ){
           // Включаем DC-DC накачки помпы
-          gpioPinResetNow( &gpioPinRelEn );
+          gpioPinSetNow( &gpioPinRelEn );
         }
         break;
       default:
