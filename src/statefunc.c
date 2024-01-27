@@ -65,7 +65,7 @@ inline void stateOff( void ){
 
   if( measRun == SET ){
     // Направление - off->on
-    zoomOn();
+    //gpioPinSet( &gpioPinBuzz );
     assert_param( measDev.status.pressOk == RESET );
     measDev.tout = mTick + MEAS_TIME_MAX;
     measStartClean();
@@ -89,6 +89,7 @@ inline void stateOff( void ){
 #endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1000*15 );
 //      timerMod( &measOnCanTimer, TOUT_1500 );
+      // Включаем накачку помпы
 //      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
@@ -193,7 +194,7 @@ inline void stateEnd( void ){
   if( measRun == SET ){
     switch( measRunWait ){
       case MSTATE_NON:
-        zoomOff();
+        gpioPinReset( &gpioPinBuzz );
         measDev.status.relEnd = RESET;
         // TODO: Запуск оптавки данных
 #if DEBUG_TRACE_RUN
@@ -253,7 +254,7 @@ inline void stateFin( void ){
 #if DEBUG_TRACE_RUN
     trace_puts(":Meas data sent - fin");
 #endif
-    zoomOff();
+    gpioPinReset( &gpioPinBuzz );
     measDev.status.relEnd = RESET;
     measRunWait = MSTATE_NON;
     measState = MEASST_OFF;
@@ -276,7 +277,7 @@ inline void stateFault( void ){
     switch( measRunWait ){
       case MSTATE_NON:
         // Запуск троекратного зума
-        zoomOff();
+        gpioPinReset( &gpioPinBuzz );
         measDev.tout = mTick + 1000;
         measDev.count = 0;
         measRunWait = MSTATE_ON;
@@ -286,7 +287,7 @@ inline void stateFault( void ){
         break;
       case MSTATE_ON:
         if( measDev.tout < mTick ){
-          zoomOn();
+          //gpioPinSet( &gpioPinBuzz );
           measDev.tout = mTick + 300;
           measRunWait = MSTATE_ON_OK;
 #if DEBUG_TRACE_RUN
@@ -296,7 +297,7 @@ inline void stateFault( void ){
         break;
       case MSTATE_ON_OK:
         if( measDev.tout < mTick ){
-          zoomOff();
+          gpioPinReset( &gpioPinBuzz );
           if( ++measDev.count == 3 ){
             // Пропикало Третий раз
             measState = MEASST_OFF;

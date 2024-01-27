@@ -39,12 +39,14 @@ sAdcHandle adcHandle = {
 #define TEMP_CH       0     // PA0
 #define PRESS_CH      1     // PA1
 #define ALCO_CH       2     // PA2
+#define ALCO2_CH      7     // PA7
 #define VAD_CH        6     // PA6
 
 sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcVad = {GPIOA, 0, GPIO_Pin_6, 6, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdcAlco2 = {GPIOA, 0, GPIO_Pin_7, 7, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 
 #define ADC_KPARAM_0    (4096UL)   // Делитель для VBAT: 10/20
@@ -159,7 +161,7 @@ void adcInit(void){
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
   ADC1->SQR1 = (ADC_PRM_NUM - 1) << 20;
 #if PRESS_ADC
-  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15) | (VAD_CH << 20);
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15) | (ALCO2_CH << 20) | (VAD_CH << 25);
 #else // PRESS_ADC
   ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (ALCO_CH << 10) | (VAD_CH << 15);
 #endif // PRESS_ADC
@@ -171,7 +173,7 @@ void adcInit(void){
   // Длительность сэмпла = 13.5 ADCCLK
   ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
 #if PRESS_ADC
-  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP6_1;
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP6_1 | ADC_SMPR2_SMP7_1;
 #else // PRESS_ADC
   ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1;
 #endif // PRESS_ADC
@@ -207,6 +209,7 @@ static inline void adcGpioInit( void ){
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );
+  gpioPinSetup( &gpioPinAdcAlco2 );
   gpioPinSetup( &gpioPinAdcVad );
 }
 

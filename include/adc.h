@@ -85,6 +85,7 @@ typedef enum {
   ADC_PRM_PRESS,
 #endif // PRESS_ADC
   ADC_PRM_ALCO,
+  ADC_PRM_ALCO2,
   ADC_PRM_VAD,
   ADC_PRM_NUM
 } eAdcPrm;
