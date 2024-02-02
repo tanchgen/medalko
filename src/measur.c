@@ -15,6 +15,17 @@
 #include "measur.h"
 #include "buffer.meas.h"
 
+
+const volatile sAlcoKn _alcoKn[ALCO_KN_NUM] __attribute__ ((section(".constdata"))) = {
+    {0,0},      // x0,y0
+    {0,0},      // x1,y1
+    {0,0},
+    {0,0},
+    {0,0},
+    {0,0},
+    {0,0}
+};
+
 eMeasState measState = MEASST_OFF;
 FlagStatus measOnNeed = RESET;
 FlagStatus measRun = RESET;
@@ -253,6 +264,61 @@ void termProc( int32_t term ){
 
 // Обработка результатов ADC_ALCO
 void alcoProc( int32_t alco ){
+  uint16_t termK;
+  float b, k;
+  uint8_t pakidx, pakidx2 = 0;       // Индекс массива поправочных коэффициентов
+  sAlcoKn * palcok0;
+  sAlcoKn * palcok1 = 0;
+
+  // ----- Поправочные коеффициенты --------
+  // Постоянный и Температурный
+  if( measDev.alcoData.temp >= 25 ){
+    termK = 11625 - 65 * measDev.alcoData.temp;
+    alco = (alco * measDev.alcoK0) / termK;
+  }
+  else if( measDev.alcoData.temp >= 25 ){
+    termK = 8720 + 64 * measDev.alcoData.temp;
+    alco = (alco * measDev.alcoK0) / termK;
+  }
+  else if( measDev.alcoK0 != 10000) {
+    alco = (alco * measDev.alcoK0) / 10000;
+  }
+
+  // К-Л аппроксимация
+  pakidx = 0;
+  if( alco >= measDev.alcoKn[pakidx].alcoKx ){
+    while( pakidx2 == 0 ){
+      if( alco < measDev.alcoKn[pakidx + 1].alcoKx ) {
+        pakidx2 = pakidx + 1;
+        palcok0 = &measDev.alcoKn[pakidx];
+        palcok1 = &measDev.alcoKn[pakidx2];
+        break;
+      }
+      else {
+        // Еще не нашли интервал
+        pakidx++;
+      }
+    }
+
+    if( pakidx2 != 0 ){
+      // k = (Y1 - Y0)/(X1 - X0);
+      // b = Y0 - k * X0
+      // lineB = (y1(x2-x1)-x1(y2-y1))/(x2-x1)
+      // lineK = (y1-B)/x1
+      k = (float)(palcok0->alcoKy - palcok0->alcoKy) / (float)(palcok1->alcoKx - palcok0->alcoKx);
+      b = (float)(palcok0->alcoKy) - (float)palcok0->alcoKx * k;
+      alco = alco * k + b;
+    }
+    else {
+      // Выше максимума диапозона К-Л аппроксимации
+    }
+
+  }
+  else {
+    // Ниже минимума диапозона К-Л аппроксимации
+  }
+
+
   if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
     measDev.alcoData.alco = alco;
@@ -459,4 +525,7 @@ void measInit( void ){
   measPrmClean();
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
+  for( uint8_t i = 0; i < ALCO_KN_NUM; i++ ){
+    measDev.alcoKn[i] = _alcoKn[i];
+  }
 }

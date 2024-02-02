@@ -57,6 +57,13 @@ typedef enum {
   RX_PRM_NUM
 } eRxPrm;
 
+typedef struct {
+  float alcoKx;       // Коэфф. "X" К-Л аппроксимации
+  float alcoKy;       // Коэфф. "Y" К-Л аппроксимации
+} sAlcoKn;
+
+#define ALCO_KN_NUM     7   // Количество интервалов для К-Л аппроксимации датчика алко
+
 typedef union _sMeasStatus {
   struct {
     uint32_t measStart: 1;
@@ -141,6 +148,8 @@ typedef struct _sMeasur {
     uint16_t receivPrm[RX_PRM_NUM];
   };
   uint32_t contRelTout;
+  uint16_t alcoK0;              // Постоянный коэфф. датчика алкоголя (k * 10000)
+  sAlcoKn alcoKn[ALCO_KN_NUM];            // Набор данных для Кусочно-Линейной аппроксимации
 } sMeasur;
 
 extern sMeasur measDev;
