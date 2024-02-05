@@ -8,6 +8,10 @@
 #include "main.h"
 #include "measur.h"
 #include "press_i2c.h"
+#include "smbus.h"
+
+#define GPZ6859_ADDR      (0x5A << 1) //(0x6D << 1)
+#define GPZ6859_PEC       PEC_DISABLE
 
 sGpioPin pressPinScl = {GPIOB, 1, GPIO_Pin_6, 6, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 sGpioPin pressPinSda = {GPIOB, 1, GPIO_Pin_7, 7, GPIO_MODE_AFOD_10, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
@@ -51,11 +55,13 @@ struct _i2cProgrData {
 
 sI2cTrans i2cTrans[I2C_PACK_MAX];
 volatile uint8_t transCount;
+uint8_t transLen;
+
 eI2cState i2cState;
 ePressProgr pressProgr;
 uint32_t pressI2cTout = 0;
+uint8_t sysCfgData;
 
-uint8_t i2cDataBuf[5];     // Сборник результатов измерений
 int32_t i2cPress;
 uint16_t pressCount;
 int32_t i2cTerm;
@@ -113,12 +119,18 @@ FlagStatus i2cRegWrite( uint8_t reg, uint8_t data ){
   FlagStatus rc = RESET;
   sI2cTrans * trans;
 
-  assert_param( transCount < I2C_PACK_MAX );
-  trans = &(i2cTrans[transCount++]);
+  assert_param( transLen < I2C_PACK_MAX );
+  trans = &(i2cTrans[transLen++]);
 
-  trans->reg = reg;
-  trans->txData = data;
-  trans->txLen = 2;
+  trans->state = I2C_STATE_WRITE;
+  trans->reg.cmd = reg;
+  trans->regLen = 1;
+  trans->pec = GPZ6859_PEC;
+  trans->len = 1;
+  trans->data[0] = data;
+  trans->tout = 0;
+  trans->parsed = true;
+  trans++;
 
   return rc;
 }
@@ -127,12 +139,15 @@ FlagStatus i2cRegRead( uint8_t reg, uint8_t len ){
   FlagStatus rc = RESET;
   sI2cTrans * trans;
 
-  assert_param( transCount < I2C_PACK_MAX );
-  trans = &(i2cTrans[transCount++]);
+  assert_param( transLen < I2C_PACK_MAX );
+  trans = &(i2cTrans[transLen++]);
 
-  trans->reg = reg;
-  trans->txLen = 1;
-  trans->rxLen = len;
+  trans->state = I2C_STATE_READ;
+  trans->reg.cmd = reg;
+  trans->regLen = 1;
+  trans->len = len;
+  trans->tout = 0;
+  trans->parsed = true;
   // Сначала пишем
   trans->rxDataFlag = RESET;
 
@@ -155,77 +170,95 @@ void i2cWriteHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
     // Адрес отправлен
     // Стираем флаг ADDR
     (void)i2c->SR2;
-    i2c->DR = trans->reg;
-    i2c->DR = trans->txData;
+    i2c->DR = trans->reg.cmd;
+    while( (i2c->SR1 & I2C_SR1_TXE) == 0 )
+    {}
+    i2c->DR = trans->data[0];
+    i2c->CR2 &= ~I2C_CR2_ITBUFEN;
+
+    i2c->CR1 |= I2C_CR1_STOP;
+    while( i2c->SR1 & I2C_SR1_TXE )
+    {}
+    i2cState = I2C_STATE_END;
+
   }
   if( i2c->SR1 & I2C_SR1_BTF ){
     i2c->CR1 |= I2C_CR1_STOP;
   }
-  // ITBUFEN
-  if( i2c->SR1 & I2C_SR1_TXE ){
-    // При записи отправляем только один байт данных
-    assert_param( trans->txLen == 1 );
-    trans->txLen = 0;
-    i2c->DR = trans->txData;
-    i2c->CR2 &= ~I2C_CR2_ITBUFEN;
-  }
+//  // ITBUFEN
+//  if( i2c->SR1 & I2C_SR1_TXE ){
+//    // При записи отправляем только один байт данных
+//    assert_param( trans->txLen == 1 );
+//    trans->txLen = 0;
+//    i2c->DR = trans->txData;
+//  }
 }
 
 
 // Обработка прерываний при чтении в регистр
 void i2cReadHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
   uint32_t sr1 = i2c->SR1;
-  uint32_t sr2;
 
   assert_param( i2c == PRESS_I2C );
   assert_param( i2cState == I2C_STATE_READ );
 
   if( sr1 & I2C_SR1_SB ){
     // Старт-условие
-    i2c->DR = PRESS_I2C_ADDR | ((trans->rxDataFlag)? I2C_READ_BIT : I2C_WRITE_BIT);
+    if (trans->rxDataFlag){
+      i2c->DR = GPZ6859_ADDR | I2C_READ_BIT;
+    }
+    else {
+      i2c->DR = GPZ6859_ADDR;
+    }
+//      i2c->DR = GPZ6859_ADDR | ((trans->rxDataFlag)? I2C_READ_BIT : I2C_WRITE_BIT);
   }
   if( sr1 & I2C_SR1_ADDR ){
     // Адрес отправлен
     // Стираем флаг ADDR;
-    sr2 = i2c->SR2;
-    (void)sr2;
+    (void)i2c->SR2;
     if(trans->rxDataFlag){
-      // Читаем Данные
-      if( trans->rxLen == 1){
+      if( trans->len == 1){
         i2c->CR1 = (i2c->CR1 & ~I2C_CR1_ACK) | I2C_CR1_STOP;
       }
+      else {
+        i2c->CR1 |= I2C_CR1_ACK;
+      }
+      trace_printf( "CR1:0x%x\n", i2c->CR1 );
       i2c->CR2 |= I2C_CR2_ITBUFEN;
     }
     else {
       // Пишем номер регистра
+      i2c->DR = (uint8_t)(trans->reg.u8reg[trans->regCount++]);
+      if( trans->regLen > 1){
+        i2c->CR2 |= I2C_CR2_ITBUFEN;
+      }
+      else {
+        i2c->CR1 |= I2C_CR1_START;
+        while((i2c->SR1 & I2C_SR1_SB) == 0)
+        {}
+        trans->rxDataFlag = SET;
+      }
+    }
+  }
+  else if( (i2c->CR2 & I2C_CR2_ITBUFEN) && (sr1 & I2C_SR1_TXE) ){
+    assert_param( trans->regCount < trans->regLen );
+    i2c->DR = (uint8_t)(trans->reg.u8reg[trans->regCount++]);
+    if( trans->regCount == trans->regLen ){
+      i2c->CR2 &= ~I2C_CR2_ITBUFEN;
       i2c->CR1 |= I2C_CR1_START;
       trans->rxDataFlag = SET;
-      i2c->DR = trans->reg;
     }
   }
-  if( sr1 & I2C_SR1_RXNE ){
-    // При записи отправляем только один байт данных
-    assert_param( trans->rxLen > 0 );
-    trans->rxData[trans->rxCount++] = i2c->DR;
-    if( (trans->rxLen - trans->rxCount) == 1 ){
+  else if( (i2c->CR2 & I2C_CR2_ITBUFEN) && (sr1 & I2C_SR1_RXNE) ){
+    assert_param( trans->len > 0 );
+    trans->data[trans->count++] = i2c->DR;
+    if( (trans->len - trans->count) == 1 ){
       i2c->CR1 = (i2c->CR1 & ~I2C_CR1_ACK) | I2C_CR1_STOP;
+    }
+    else if( trans->len == trans->count ){
       i2c->CR2 &= ~I2C_CR2_ITBUFEN;
-    }
-  }
-  if( sr1 & I2C_SR1_STOPF ){
-    assert_param( trans->rxLen == trans->rxCount );
-
-    transCount--;
-
-    // XXX: Применимо только для чтения 1-го байта !!!
-    assert_param( trans->rxLen == 1 );
-    i2cDataBuf[transCount] = trans->rxData[0];
-
-    if( transCount ){
-      // Запускаем очередной пакет
-      PRESS_I2C->CR1 |= I2C_CR1_START;
-    }
-    else {
+      while( i2c->CR1 & I2C_CR1_STOP )
+      {}
       i2cState = I2C_STATE_END;
     }
   }
@@ -256,14 +289,13 @@ void I2C1_EV_IRQHandler( void ){
 
 // Процес информационного обмена по I2C с PRESS
 void pressI2cProc( void ){
-  static uint8_t sysCfgData;
   transCount = 0;
   // Обмен по I2C производиться в обратном порядке
   switch( pressProgr ){
     case PRESS_CFG_P:
       // 2. Считываем SYS_CFG
-      i2cRegRead( regAddr[REG_SYS_CFG], 1 );
       i2cRegWrite( regAddr[REG_P_CFG], pcfgReg.u8pcfg );
+      i2cRegRead( regAddr[REG_SYS_CFG], 1 );
       // Запускаем 1-й пакет в работу
       PRESS_I2C->CR1 |= I2C_CR1_START;
       break;
@@ -275,13 +307,14 @@ void pressI2cProc( void ){
       // 2. Конфиг CMD_REG и сразу запуск измерений
       i2cRegWrite( regAddr[REG_CMD], cmdReg.u8cmd );
       // 1. Сохраняем AOUT
-      sysCfgData = (i2cTrans[transCount - 1].txData & SYSCFG_AOUT_MASK) | syscfgReg.u8syscfg;
+      assert_param( sysCfgData != 0 );
       i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData );
       // Запускаем 1-й пакет в работу
       PRESS_I2C->CR1 |= I2C_CR1_START;
       break;
     case PRESS_START:
       // Запуск измерений - CMD.SCO
+      assert_param( sysCfgData != 0 );
       i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData | CMD_SCO );
       // Запускаем 1-й пакет в работу
       PRESS_I2C->CR1 |= I2C_CR1_START;
@@ -317,31 +350,46 @@ void pressI2cClock( void ){
       }
       break;
     case I2C_STATE_END:       // Нормальное окончание программы
-      assert_param( transCount == 0 );
-      // Больше передавать нечего - переходим к следующему пункту программы обмена
-      if( ++pressProgr == PRESS_PROGR_NUM ){
-        // Дошли до конца списка
-        //Сохраняем значения
-        i2cPress = (i2cDataBuf[4] << 2) | (i2cDataBuf[3] << 1) | i2cDataBuf[2];
-#if !PRESS_ADC
-        pressProc( i2cPress, &pressCount );
-#endif // !PRESS_ADC
-        i2cTerm = (i2cDataBuf[1] << 1) | i2cDataBuf[0];
-        pressI2cTout = mTick + 20;
-        pressProgr = PRESS_START;
-      }
-      else if( pressProgr == PRESS_DATA_READ ){
-        // Ожидание окончания измерения
-        if( ((uCmdReg)(i2cTrans[transCount - 1].rxData[0])).sco != RESET ){
-          // Данные НЕ готовы - проверяем опять
-          pressProgr--;
-          pressI2cTout = mTick + 5;
-        }
+      if( ++transCount < transLen ){
+        // Запускаем 1-й пакет в работу
+        PRESS_I2C->CR1 |= I2C_CR1_START;
       }
       else {
-        pressI2cTout = mTick;
+        // Обработка и сохранение полученных данных
+        assert_param( transCount == transLen );
+        transCount = 0;
+        transLen = 0;
+
+        // Больше передавать нечего - переходим к следующему пункту программы обмена
+        if( ++pressProgr == PRESS_PROGR_NUM ){
+          // Дошли до конца списка
+          //Сохраняем значения
+          i2cPress = (i2cTrans[0].data << 2) | (i2cTrans[1].data << 1) | i2cTrans[2].data;
+  #if !PRESS_ADC
+          pressProc( i2cPress, &pressCount );
+  #endif // !PRESS_ADC
+          i2cTerm = (i2cTrans[4].data << 1) | i2cTrans[3].data;
+          pressI2cTout = mTick + 20;
+          pressProgr = PRESS_START;
+        }
+        else if( pressProgr == PRESS_DATA_READ ){
+          // Ожидание окончания измерения
+          if( ((uCmdReg)(i2cTrans[transCount - 1].data[0])).sco != RESET ){
+            // Данные НЕ готовы - проверяем опять
+            pressProgr--;
+            pressI2cTout = mTick + 5;
+          }
+        }
+        else {
+          if( pressProgr == PRESS_CFG_P ){
+            // Получили конфигурацию
+            sysCfgData = (i2cTrans[transCount - 1].data[0] & SYSCFG_AOUT_MASK) | syscfgReg.u8syscfg;
+          }
+          pressI2cTout = mTick;
+        }
+        i2cState = I2C_STATE_IDLE;
       }
-      i2cState = I2C_STATE_IDLE;
+
       break;
     case I2C_STATE_ERR:
       pressProgr--;
@@ -367,6 +415,8 @@ void pressI2cInit( void ){
   // Data setup
   i2cState = I2C_STATE_IDLE;
   transCount = 0;
+  transLen = 0;
+  pressProgr = PRESS_DATA_READ;
 
   // I2C GPIO setup
   gpioPinSetup( &pressPinScl );

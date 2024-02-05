@@ -129,13 +129,27 @@ typedef union _pcfg {
 // ---------------------------------------------------------------------------------
 
 typedef struct _i2ctrans {
-  ePressReg reg;
-  uint8_t txData;
-  volatile uint8_t txLen;
-  volatile uint8_t rxData[3];
-  volatile uint8_t rxLen;
-  volatile uint8_t rxCount;
-  FlagStatus rxDataFlag;  // RESET - оптравляем регистр, 1 - читаем данные из регистра
+  union __aligned(4){
+    struct {
+      uint8_t cmd;
+      uint16_t subcmd1;
+//      uint8_t subcmd2;
+//      uint8_t subcmd3;
+    };
+    uint8_t  u8reg[4];
+    uint16_t u16reg[2];
+    uint16_t u32reg;
+  } reg;
+  uint8_t regLen;
+  uint8_t regCount;
+  uint8_t data[16];
+  volatile uint16_t len;
+  volatile uint16_t count;
+  eI2cState state;
+  FlagStatus rxDataFlag;       // RESET - оптравляем регистр, 1 - читаем данные из регистра
+  FlagStatus pec;
+  uint16_t  tout;              /** <Задержка на обработку данных устройством, мс. */
+  FlagStatus parsed;           /** <Признак незначащей для обработки последовательности (например, для I2C-мультиплексора MAX7357) */
 } sI2cTrans;
 
 typedef struct _pressDev {
