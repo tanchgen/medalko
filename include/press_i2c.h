@@ -11,11 +11,17 @@
 #include "stm32f10x.h"
 
 #define PRESS_I2C           I2C1
+#define I2C_FS_ENABLE       0
+#if I2C_FS_ENABLE
 #define I2C_FS_SPEED            400000UL
-#define PRESS_I2C_ADDR      (0x6D << 1)
+#else
+#define I2C_SM_SPEED            10000UL
+#endif // I2C_FS_ENABLE
 
-#define I2C_WRITE_BIT       0x1
-#define I2C_READ_BIT        0x0
+#define PRESS_I2C_ADDR      (0x5A << 1) // (0x6D << 1)
+
+#define I2C_WRITE_BIT       0x0
+#define I2C_READ_BIT        0x1
 
 #define I2C_PACK_MAX      10
 
@@ -56,15 +62,28 @@ typedef enum {
   I2C_STATE_ERR
 } eI2cState;
 
+//typedef enum _pressreg {
+//  REG_PRESS_MSB,
+//  REG_PRESS_CSB,
+//  REG_PRESS_LSB,
+//  REG_T_MSB,
+//  REG_T_LSB,
+//  REG_CMD,
+//  REG_SYS_CFG,
+//  REG_P_CFG,
+//  REG_NUM
+//} ePressReg;
+
 typedef enum _pressreg {
-  REG_PRESS_MSB,
-  REG_PRESS_CSB,
-  REG_PRESS_LSB,
-  REG_T_MSB,
-  REG_T_LSB,
-  REG_CMD,
+  REG_PRESS0_LSB,
+  REG_PRESS0_MSB,
+  REG_PRESS1_LSB,
+  REG_PRESS1_MSB,
+  REG_PRESS2_LSB,
+  REG_PRESS2_MSB,
   REG_SYS_CFG,
-  REG_P_CFG,
+  REG_SYS_CFG2,
+  REG_SYS_CFG3,
   REG_NUM
 } ePressReg;
 
@@ -142,7 +161,11 @@ typedef struct _i2ctrans {
   } reg;
   uint8_t regLen;
   uint8_t regCount;
-  uint8_t data[16];
+  union {
+    uint8_t u8data[16];
+    uint16_t u16data[8];
+    uint32_t u32data[4];
+  };
   volatile uint16_t len;
   volatile uint16_t count;
   eI2cState state;

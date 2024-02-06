@@ -135,13 +135,15 @@ void gpioPinCmdNow( sGpioPin *pin, FlagStatus act ){
 
 
 void gpioPinSet( sGpioPin *pin ){
-  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  assert_param( ((pin->mode & 0x3) && ((pin->mode & 0x8) == 0)) \
+                || (pin->mode == GPIO_MODE_IUD));
   pin->gpio->BSRR = pin->pin;
   pin->newstate = Bit_SET;
 }
 
 void gpioPinSetNow( sGpioPin *pin ){
-  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  assert_param( ((pin->mode & 0x3) && ((pin->mode & 0x8) == 0)) \
+                || (pin->mode == GPIO_MODE_IUD));
   pin->gpio->BSRR = pin->pin;
   if(pin->state == Bit_RESET ){
     pin->change = SET;
@@ -151,13 +153,15 @@ void gpioPinSetNow( sGpioPin *pin ){
 
 
 void gpioPinReset( sGpioPin * pin ){
-  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  assert_param( ((pin->mode & 0x3) && ((pin->mode & 0x8) == 0)) \
+                || (pin->mode == GPIO_MODE_IUD));
   pin->gpio->BRR = pin->pin;
   pin->newstate = Bit_RESET;
 }
 
 void gpioPinResetNow( sGpioPin * pin ){
-  assert_param( (pin->mode & 0x3) && ((pin->mode & 0x8) == 0) );
+  assert_param( ((pin->mode & 0x3) && ((pin->mode & 0x8) == 0)) \
+                || (pin->mode == GPIO_MODE_IUD));
   pin->gpio->BRR = pin->pin;
   if(pin->state != Bit_RESET ){
     pin->change = SET;
