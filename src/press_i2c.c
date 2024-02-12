@@ -18,27 +18,15 @@ sGpioPin pressPinSda = {GPIOB, 1, GPIO_Pin_7, 7, GPIO_MODE_AFOD_10, GPIO_PULLUP,
 sGpioPin i2cPinSclPu = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_IUD, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 sGpioPin i2cPinSdaPu = {GPIOB, 1, GPIO_Pin_1, 1, GPIO_MODE_IUD, GPIO_PULLUP, Bit_SET, Bit_SET, RESET };
 
-//uint8_t  regAddr[REG_NUM] = {
-//  0x06,         // REG_PRESS_MSB,
-//  0x07,         // REG_PRESS_CSB,
-//  0x08,         // REG_PRESS_LSB,
-//  0x09,         // REG_T_MSB,
-//  0x0A,         // REG_T_LSB,
-//  0x30,         // REG_CMD,
-//  0xA5,         // REG_SYS_CFG,
-//  0xA6,         // REG_P_CFG,
-//};
-
 uint8_t  regAddr[REG_NUM] = {
-  0x04,           // REG_PRESS0_LSB,
-  0x05,           // REG_PRESS0_MSB,
-  0x06,           // REG_PRESS1_LSB,
-  0x07,           // REG_PRESS1_MSB,
-  0x08,           // REG_PRESS2_LSB,
-  0x09,           // REG_PRESS2_MSB,
-  0x5E,           // REG_SYS_CFG,
-  0x5D,           // REG_SYS_CFG2,
-  0x5C,           // REG_SYS_CFG3,
+  0x06,         // REG_PRESS_MSB,
+  0x07,         // REG_PRESS_CSB,
+  0x08,         // REG_PRESS_LSB,
+  0x09,         // REG_T_MSB,
+  0x0A,         // REG_T_LSB,
+  0x30,         // REG_CMD,
+  0xA5,         // REG_SYS_CFG,
+  0xA6,         // REG_P_CFG,
 };
 
 // Значения регистров по умолчанию
@@ -76,13 +64,12 @@ ePressProgr pressProgr;
 uint32_t pressI2cTout = 0;
 uint8_t sysCfgData;
 
-//int32_t i2cPress;
-//uint16_t pressCount;
-//int32_t i2cTerm;
-
-uint16_t cap[3];
+int32_t i2cPress;
+uint16_t pressCount;
+int32_t i2cTerm;
 
 // ----------------------------------------------------------------------
+// Инициализация шины
 void _i2cInit( I2C_TypeDef * i2c ){
   uint8_t freq = (rccClocks.PCLK1_Frequency/1000000);
   uint32_t tmp;
@@ -254,7 +241,7 @@ void i2cReadHandle( I2C_TypeDef * i2c, sI2cTrans * trans ){
     else {
       i2c->DR = GPZ6859_ADDR;
     }
-//      i2c->DR = BQ30Z55_ADDR | ((trans->rxDataFlag)? I2C_READ_BIT : I2C_WRITE_BIT);
+//      i2c->DR = GPZ6859_ADDR | ((trans->rxDataFlag)? I2C_READ_BIT : I2C_WRITE_BIT);
   }
   if( sr1 & I2C_SR1_ADDR ){
     // Адрес отправлен
@@ -337,52 +324,45 @@ void pressI2cProc( void ){
   // Обмен по I2C производиться в обратном порядке
   switch( pressProgr ){
     case PRESS_CFG_P:
-//      // 2. Считываем SYS_CFG
-//      i2cRegWrite( regAddr[REG_P_CFG], pcfgReg.u8pcfg );
-//      i2cRegRead( regAddr[REG_SYS_CFG], 1 );
-//      // Запускаем 1-й пакет в работу
-//      _i2cStart();
+      // 2. Считываем SYS_CFG
+      i2cRegWrite( regAddr[REG_P_CFG], pcfgReg.u8pcfg );
+      i2cRegRead( regAddr[REG_SYS_CFG], 1 );
+      // Запускаем 1-й пакет в работу
+      _i2cStart();
       break;
       // 1. Записываем конфигурацию P_CFG,
     case PRESS_CFG_SYS_W:
-//      // Запись в SYS_CFG
-//
-//      // В обратном порядке
-//      // 2. Конфиг CMD_REG и сразу запуск измерений
-//      i2cRegWrite( regAddr[REG_CMD], cmdReg.u8cmd );
-//      // 1. Сохраняем AOUT
-//      assert_param( sysCfgData != 0 );
-//      i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData );
-//      // Запускаем 1-й пакет в работу
-//      _i2cStart();
+      // Запись в SYS_CFG
+
+      // В обратном порядке
+      // 2. Конфиг CMD_REG и сразу запуск измерений
+      i2cRegWrite( regAddr[REG_CMD], cmdReg.u8cmd );
+      // 1. Сохраняем AOUT
+      assert_param( sysCfgData != 0 );
+      i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData );
+      // Запускаем 1-й пакет в работу
+      _i2cStart();
       break;
     case PRESS_START:
       // Запуск измерений - CMD.SCO
-//      assert_param( sysCfgData != 0 );
-//      i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData | CMD_SCO );
-      i2cRegRead( regAddr[REG_SYS_CFG2], 1 );
-      i2cRegWrite( regAddr[REG_SYS_CFG], 0x3c);
-      i2cRegWrite( regAddr[REG_SYS_CFG2], 0x51);
-      i2cRegWrite( regAddr[REG_SYS_CFG3], 0x2B);
+      assert_param( sysCfgData != 0 );
+      i2cRegWrite( regAddr[REG_SYS_CFG], sysCfgData | CMD_SCO );
       // Запускаем 1-й пакет в работу
       _i2cStart();
       break;
     case PRESS_WAIT:
       // Читаем статус - ждем окончания измерений
       i2cRegRead( regAddr[REG_SYS_CFG], 1 );
-      i2cRegRead( regAddr[REG_SYS_CFG2], 1 );
-      i2cRegRead( regAddr[REG_SYS_CFG3], 1 );
       // Запускаем 1-й пакет в работу
       _i2cStart();
       break;
     case PRESS_DATA_READ:
       // Считываем результаты
-      i2cRegRead( regAddr[REG_PRESS0_LSB], 6 );
-//      i2cRegRead( regAddr[REG_PRESS0_MSB], 1 );
-//      i2cRegRead( regAddr[REG_PRESS1_LSB], 2 );
-//      i2cRegRead( regAddr[REG_PRESS1_MSB], 1 );
-//      i2cRegRead( regAddr[REG_PRESS2_LSB], 2 );
-//      i2cRegRead( regAddr[REG_PRESS2_MSB], 1 );
+      i2cRegRead( regAddr[REG_PRESS_MSB], 1 );
+      i2cRegRead( regAddr[REG_PRESS_CSB], 1 );
+      i2cRegRead( regAddr[REG_PRESS_LSB], 1 );
+      i2cRegRead( regAddr[REG_T_MSB], 1 );
+      i2cRegRead( regAddr[REG_T_LSB], 1 );
       // Запускаем 1-й пакет в работу
       _i2cStart();
       break;
@@ -415,14 +395,11 @@ void pressI2cClock( void ){
         if( ++pressProgr == PRESS_PROGR_NUM ){
           // Дошли до конца списка
           //Сохраняем значения
-//          i2cPress = (i2cTrans[0].data << 2) | (i2cTrans[1].data << 1) | i2cTrans[2].data;
-//#if !PRESS_ADC
-//          pressProc( i2cPress, &pressCount );
-//#endif // !PRESS_ADC
-//          i2cTerm = (i2cTrans[4].data << 1) | i2cTrans[3].data;
-          cap[0] = i2cTrans[0].u16data[0];
-          cap[1] = i2cTrans[0].u16data[1];
-          cap[2] = i2cTrans[0].u16data[2];
+          i2cPress = (i2cTrans[0].u8data[0] << 2) | (i2cTrans[1].u8data[0] << 1) | i2cTrans[2].u8data[0];
+#if !PRESS_ADC
+          pressProc( i2cPress, &pressCount );
+#endif // !PRESS_ADC
+          i2cTerm = (i2cTrans[4].u8data[3] << 1) | i2cTrans[4].u8data[0];
           pressI2cTout = mTick + 20;
           pressProgr = PRESS_DATA_READ;
         }
