@@ -58,6 +58,7 @@ const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0 / 10,
 #endif // PRESS_ADC
     ADC_KPARAM_0,
+    ADC_KPARAM_0,
     ADC_KPARAM_0 / 10,
 };
 
