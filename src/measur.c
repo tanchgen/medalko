@@ -203,7 +203,9 @@ void alcoProc( int32_t alco ){
 void totalProc( void ){
   if( measDev.status.measStart ){
     // Все данные сохранили
-    measDev.dataNum++;
+    if(measDev.dataNum < MEAS_SEQ_NUM_MAX ){
+      measDev.dataNum++;
+    }
   }
 }
 

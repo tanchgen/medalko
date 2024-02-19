@@ -34,6 +34,7 @@ sAdcHandle adcHandle = {
 };
 
 sGpioPin gpioPinAdcT = {GPIOA, 0, GPIO_Pin_0, 0, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinAdc5V = {GPIOA, 0, GPIO_Pin_6, 6, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcPress = {GPIOA, 0, GPIO_Pin_1, 1, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
@@ -43,6 +44,7 @@ sGpioPin gpioPinAdcAlco = {GPIOA, 0, GPIO_Pin_2, 2, GPIO_MODE_AIN, GPIO_NOPULL, 
 const uint16_t adcKprm[ADC_PRM_NUM] = {
     ADC_KPARAM_0,
     ADC_KPARAM_0,
+    ADC_KPARAM_0 / 2,
     ADC_KPARAM_0 / 10,
     ADC_KPARAM_0
 };
@@ -59,7 +61,7 @@ void adcStart( void );
 //
 
 
-#if VDD_AVG  || TERM_AVG || ALCO_AVG
+#if VDD_AVG || _5V_AVG ||  TERM_AVG || ALCO_AVG
 
 // Расчет скользящего среднего беззнакового
 static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
@@ -71,7 +73,7 @@ static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
 
 #if PRESS_AVG  || ALCO_AVG
 // Расчет скользящего среднего беззнакового
-static inline void movAvgS( int16_t *avg, int32_t pt, const uint8_t kavg  ){
+void movAvgS( int32_t *avg, int32_t pt, const uint8_t kavg  ){
   const int32_t a = 20000 / (1+ kavg);
   int32_t tmp = *avg;
   *avg = (int16_t)((pt * a + (tmp * (10000 - a)) + 5000)/10000);
@@ -102,8 +104,8 @@ static inline void movAvgF( float *avg, float pt, const uint8_t kavg  ){
   * @retval None
   */
 void adcDmaInit(void) {
-  // Для синхронной работы требуется четное число каналов
-  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
+  // Для синхронной работы требуется четное число каналов (Для 2-х АЦП)
+//  MAYBE_BUILD_BUG_ON( ADC_PRM_NUM != ((ADC_PRM_NUM/2) * 2) );
 
   /*## Configuration of DMA ##################################################*/
   /* Enable the peripheral clock of DMA */
@@ -146,14 +148,14 @@ void adcInit(void){
 
   // Меряем 2 канала: канал 0 (ADC_TEMP) и Vref(Ch17)
   ADC1->SQR1 = (ADC_PRM_NUM - 1) << 20;
-  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (PRESS_CH << 10) | (ALCO_CH << 15);
+  ADC1->SQR3 = (VDD_CH << 0) | (TEMP_CH << 5) | (_5V_CH << 10) | (PRESS_CH << 15) | (ALCO_CH << 20);
   // Меряем 2 канала: канал 2 (ADC_PRESS) и 3 (ADC_ALCO)
 //  ADC2->SQR1 = ((ADC_PRM_NUM / 2) - 1) << 20;
 //  ADC2->SQR3 = (PRESS_CH << 0) | (ALCO_CH << 5);
 
   // Длительность сэмпла = 13.5 ADCCLK
   ADC1->SMPR1 = ADC_SMPR1_SMP17_2;
-  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
+  ADC1->SMPR2 = ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1 | ADC_SMPR2_SMP6_1;
 //  ADC2->SMPR2 = ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP3_1;
 
   ADC1->CR2 |= ADC_CR2_ADON;
@@ -186,6 +188,7 @@ static inline void adcGpioInit( void ){
   gpioPinSetup( &gpioPinAdcT );
   gpioPinSetup( &gpioPinAdcPress );
   gpioPinSetup( &gpioPinAdcAlco );
+  gpioPinSetup( &gpioPinAdc5V );
 }
 
 
@@ -352,13 +355,26 @@ void adcProcess( uintptr_t arg ){
 #if VDD_AVG
     	static uint8_t avgcount;
 
-      movAvgU( (uint32_t *)&adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
+      movAvgF( &adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
       if( avgcount < (VDD_AVRG_IDX * 5) ){
         avgcount++;
         return;
       }
 #endif //VDD_AVG
         pData->prm = (uint16_t)(4096000/(((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD] * 1000)/VREFINT_VOL));
+        break;
+      }
+      case ADC_PRM_5V:{
+#if _5V_AVG
+      static float avg5v;
+
+      if( avg5v == 0 ){
+        avg5v = adcHandle.adcVprm[ADC_PRM_5V];
+      }
+      movAvgF( &avg5v, adcHandle.adcVprm[ADC_PRM_5V], _5V_AVG_IDX );
+      adcHandle.adcVprm[ADC_PRM_5V] = avg5v;
+#endif //VDD_AVG
+        pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
         break;
       }
       case ADC_PRM_PRESS:     // Давление Pa = mV
@@ -370,35 +386,54 @@ void adcProcess( uintptr_t arg ){
             else {
               assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
               adcHandle.pressAvg /= (LEARN_COUNT_MAX/* - LEARN_COUNT_MIN*/);
+              adcHandle.pressOffset = adcHandle.pressAvg - (adcHandle.adcVprm[ADC_PRM_5V] / 2);
               adcHandle.learnFlag = RESET;
               adcHandle.pressCount = 0;
             }
         }
         else {
-          int16_t prm;
 #if PRESS_AVG
-          int32_t tmpprm;
+          static float fpress;
+          float_t tmpprm;
 
+          adcHandle.pressAvg = (adcHandle.adcVprm[ADC_PRM_5V] / 2) + adcHandle.pressOffset;
           tmpprm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
-          prm = pData->prm;
-          movAvgS( (int16_t *)&prm, tmpprm, PRESS_AVG_IDX );
-//          prm = tmpprm;
+          if( fpress == 0 ){
+            fpress = tmpprm;
+          }
+          else {
+            movAvgF( &fpress, tmpprm, PRESS_AVG_IDX );
+          }
+          pData->prm = lround(fpress);
+          if( (pData->prm > 1000) || (pData->prm < -1000) ){
+            pData->prm = 0;
+          }
 #else //PRESS_AVG  || ALCO_AVG
-          prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
+          int32_t prm;
+
+          pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
-          if( prm < measDev.pressLimMinStop) {
+          if( pData->prm < measDev.pressLimMinStop/2) {
             static float ftmp;
 
             if( ftmp == 0 ){
-              ftmp = adcHandle.pressAvg;
+              ftmp = adcHandle.pressOffset;
             }
 
-            movAvgF( &ftmp, adcHandle.adcVprm[ADC_PRM_PRESS], PRESS_AVG_IDX * 5 );
-            adcHandle.pressAvg = lrint(ftmp);
+            movAvgF( &ftmp, adcHandle.adcVprm[ADC_PRM_PRESS] - (adcHandle.pressAvg - adcHandle.pressOffset), PRESS_AVG_IDX * 5 );
+            adcHandle.pressOffset = ftmp;
           }
 
-          pData->prm = prm;
+/*
+          if( prm < -50 ){
+            trace_printf("5V:%d,AVG: %d, PR:%d\n",
+                          adcHandle.adcData[ADC_PRM_5V].prm,
+                          adcHandle.pressAvg,
+                          adcHandle.adcData[ADC_PRM_PRESS].prm);
+
+          }
+*/
 
 #else // SIMUL
 //          if( pData->prm == 0 ){
