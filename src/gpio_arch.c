@@ -15,7 +15,7 @@ sGpioPin gpioPinAlcoRst = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPUL
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinBuzz = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
-sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+//sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin gpioPinUsbDp = {GPIOA, 0, GPIO_Pin_12, 12, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
@@ -388,6 +388,7 @@ void gpioInit( void ){
   trace_puts("Function: Init GPIO");
 #endif
 
+  gpioPinSetup( &gpioPinAlcoRst );
   gpioPinSetup( &gpioPinRelEn );
   gpioPinSetup( &gpioPinRelOn );
   gpioPinSetup( &gpioPinBuzz );

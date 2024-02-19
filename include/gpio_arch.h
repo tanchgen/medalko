@@ -253,7 +253,6 @@ extern sGpioPin gpioPinRelEn;
 extern sGpioPin gpioPinRelOn;
 extern sGpioPin gpioPinBuzz;
 //extern sGpioPin gpioPinTest;
-extern sGpioPin gpioPinAlcoRes;
 
 // ------------------- LEDS -----------------------
 // Определено в led.c
