@@ -146,6 +146,7 @@ typedef struct {
   uint16_t pressCount;
   FlagStatus learnFlag;
   int32_t pressAvg;
+  int32_t alcoAvg;
 } sAdcHandle;
 
 // Структура флагов изменения значения параметра, пиков, порогов
