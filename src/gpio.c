@@ -10,6 +10,7 @@ void gpioPinResetNowTout( uintptr_t arg ){
 
 
 void gpioPinSetup(sGpioPin *pin) {
+  assert_param( pin->gpio != NULL );
   assert_param( pin->gpioNum <= 3);
 
   if( pin->gpio == GPIOA ){

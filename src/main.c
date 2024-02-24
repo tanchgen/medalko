@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
 
 //  __enable_irq();
 
-  mDelay( 1000 );
+  mDelay( 100 );
 
   /*
    *  Разрешение работы периферии.

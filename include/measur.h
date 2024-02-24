@@ -14,6 +14,7 @@
 // Давление измеряет ADC или I2C
 #define PRESS_ADC         1
 
+
 #define MEAS_TIME_MAX     3000
 #define MEAS_TIME_MIN     1000
 

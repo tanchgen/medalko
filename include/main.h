@@ -28,7 +28,7 @@
 #define TOUT_1500     1500
 #define TOUT_2000     2000
 
-#define INIT_TOUT     5000
+#define INIT_TOUT     2000
 
 #define FPGA_DONE_TOUT (TOUT_1000 * 15)
 
