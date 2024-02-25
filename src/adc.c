@@ -376,36 +376,42 @@ void adcProcess( uintptr_t arg ){
 
   adcHandle.adcOk = RESET;
 
-  for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
-    sAdcData * pData = &(adcHandle.adcData[i]);
+  // Обучение
+  if( adcHandle.learnFlag ){
+      if( ++adcHandle.pressCount <= LEARN_COUNT_MAX ){
+        adcHandle.pressAvg += adcHandle.adcVprm[ADC_PRM_PRESS];
+        adcHandle.alcoAvg += adcHandle.adcVprm[ADC_PRM_ALCO];
+      }
+      else {
+        assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
+        adcHandle.pressAvg /= LEARN_COUNT_MAX;
+        adcHandle.alcoAvg /= LEARN_COUNT_MAX;
+        // Для измерения давления
+        adcHandle.pressCount = 0;
+        adcHandle.learnFlag = RESET;
+      }
+  }
+  else {
+    for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
+      sAdcData * pData = &(adcHandle.adcData[i]);
 
-    switch ( i ){
-      case ADC_PRM_VDD:{
+      switch ( i ){
+        case ADC_PRM_VDD:{
 #if VDD_AVG
-      static uint8_t avgcount;
+          static uint8_t avgcount;
 
-      movAvgF( &adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
-      if( avgcount < (VDD_AVRG_IDX * 5) ){
-        avgcount++;
-        return;
-      }
+          movAvgF( &adcHandle.avgVdd, adcHandle.adcVprm[ADC_PRM_VDD], VDD_AVG_IDX );
+          if( avgcount < (VDD_AVRG_IDX * 5) ){
+            avgcount++;
+            return;
+          }
 #endif //VDD_AVG
-        pData->prm = (uint16_t)(((adcPrmDef[i].prmK/((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD])) * VREFINT_VOL) / 1000);
-        break;
-      }
-#if PRESS_ADC
-      case ADC_PRM_PRESS:     // Давление Pa = mV
-        // Вычисляем напряжение
-        if( adcHandle.learnFlag ){
-            if( ++adcHandle.pressCount <= LEARN_COUNT_MAX ){
-              adcHandle.pressAvg += adcHandle.adcVprm[i];
-            }
-            else {
-              assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
-              adcHandle.pressAvg /= (LEARN_COUNT_MAX/* - LEARN_COUNT_MIN*/);
-            }
+          pData->prm = (uint16_t)(((adcPrmDef[i].prmK/((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD])) * VREFINT_VOL) / 1000);
+          break;
         }
-        else {
+#if PRESS_ADC
+        case ADC_PRM_PRESS:{     // Давление Pa = mV
+          // Вычисляем напряжение
 #if PRESS_AVG
           static float fpress;
           float_t tmpprm;
@@ -418,16 +424,16 @@ void adcProcess( uintptr_t arg ){
             movAvgF( &fpress, tmpprm, PRESS_AVG_IDX );
           }
           pData->prm = lround(fpress);
-          if( (pData->prm > 1000) || (pData->prm < -1000) ){
-            pData->prm = 0;
-          }
 #else //PRESS_AVG  || ALCO_AVG
           int32_t prm;
 
           pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcPrmDef[i].prmK)/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
-          if( pData->prm < measDev.pressLimMinStop/2) {
+          if( (pData->prm > 1000) || (pData->prm < -1000) ){
+            pData->prm = 0;
+          }
+          else if( pData->prm < measDev.pressLimMinStop/2 ){
             static float ftmp;
 
             if( ftmp == 0 ){
@@ -439,10 +445,6 @@ void adcProcess( uintptr_t arg ){
           }
 
 #else // SIMUL
-//          if( pData->prm == 0 ){
-//            pData->prm = prm;
-//          }
-//          else
           if( mTick > (simulStart) ){
             if( mTick < (simulStart + 4000) ){
               if(pData->prm < 300 ) {
@@ -461,35 +463,21 @@ void adcProcess( uintptr_t arg ){
 #endif // SIMUL
           pressProc( pData->prm, &adcHandle.pressCount );
 
+          break;
         }
-        break;
 #endif // PRESS_ADC
-      case ADC_PRM_TERM: {
-        // Вычисляем напряжение
-        uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
-        // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
-        adcHandle.adcData[i].prm = (int32_t)(10.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 2730;
-        termProc( adcHandle.adcData[i].prm );
-        break;
-      }
-      case ADC_PRM_ALCO:
-        // Вычисляем напряжение
-#if !SIMUL
-        if( adcHandle.learnFlag ){
-            if( adcHandle.pressCount <= LEARN_COUNT_MAX ){
-              adcHandle.alcoAvg += adcHandle.adcVprm[i];
-            }
-            else {
-              assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
-              adcHandle.alcoAvg /= (LEARN_COUNT_MAX/* - LEARN_COUNT_MIN*/);
-              // !!! И к датчику давления и алкодатчику !!!
-              adcHandle.learnFlag = RESET;
-              // Для измерения давления
-              adcHandle.pressCount = 0;
-            }
+        case ADC_PRM_TERM: {
+          // Вычисляем напряжение
+          uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
+          // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
+          adcHandle.adcData[i].prm = (int32_t)(10.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 2730;
+          termProc( adcHandle.adcData[i].prm );
+          break;
         }
-        else {
-          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.alcoAvg - adcHandle.adcVprm[i])) / adcPrmDef[i].prmK);
+        case ADC_PRM_ALCO:
+          // Вычисляем напряжение
+#if !SIMUL
+          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (/*adcHandle.alcoAvg -*/ adcHandle.adcVprm[i])) / adcPrmDef[i].prmK);
 #else // SIMUL
           if( measDev.status.measStart == RESET ){
 //            adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
@@ -500,26 +488,11 @@ void adcProcess( uintptr_t arg ){
           }
 #endif // SIMUL
           alcoProc( adcHandle.adcData[i].prm );
-        }
-        break;
+          break;
 #if ALCO_2_ADC
-      case ADC_PRM_ALCO2:
-        // Вычисляем напряжение
+        case ADC_PRM_ALCO2:
+          // Вычисляем напряжение
 #if !SIMUL
-        if( adcHandle.learnFlag ){
-            if( adcHandle.pressCount <= LEARN_COUNT_MAX ){
-              adcHandle.alcoAvg += adcHandle.adcVprm[i];
-            }
-            else {
-              assert_param( adcHandle.pressCount == (LEARN_COUNT_MAX+1) );
-              adcHandle.alcoAvg /= (LEARN_COUNT_MAX/* - LEARN_COUNT_MIN*/);
-              // !!! И к датчику давления и алкодатчику !!!
-              adcHandle.learnFlag = RESET;
-              // Для измерения давления
-              adcHandle.pressCount = 0;
-            }
-        }
-        else {
           adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.alcoAvg - adcHandle.adcVprm[i])) / adcKprm[i]);
 #else // SIMUL
           if( measDev.status.measStart == RESET ){
@@ -531,34 +504,34 @@ void adcProcess( uintptr_t arg ){
           }
 #endif // SIMUL
           alcoProc( adcHandle.adcData[i].prm );
-        }
-        break;
+          break;
 #endif // ALCO_2_ADC
 #if VAD_ADC
-      case ADC_PRM_VAD:      // Напряжение накачки помпы
-        // Вычисляем напряжение
-        adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
-        if( (adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit) \
-            && gpioPinRelEn.state )
-        {
-          // Выключаем DC-DC накачки помпы
-          gpioPinResetNow( &gpioPinRelEn );
-        }
-        else if( (adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit) \
-            && (gpioPinRelEn.state == Bit_RESET) && (gpioPinRelOn.state == Bit_RESET))
-        {
-          // Включаем DC-DC накачки помпы
-          gpioPinSetNow( &gpioPinRelEn );
-        }
-        break;
+        case ADC_PRM_VAD:      // Напряжение накачки помпы
+          // Вычисляем напряжение
+          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
+          if( (adcHandle.adcData[i].prm > adcHandle.adcData[i].prmHiAlrmLimit) \
+              && gpioPinRelEn.state )
+          {
+            // Выключаем DC-DC накачки помпы
+            gpioPinResetNow( &gpioPinRelEn );
+          }
+          else if( (adcHandle.adcData[i].prm < adcHandle.adcData[i].prmHiAlrmLimit) \
+              && (gpioPinRelEn.state == Bit_RESET) && (gpioPinRelOn.state == Bit_RESET))
+          {
+            // Включаем DC-DC накачки помпы
+            gpioPinSetNow( &gpioPinRelEn );
+          }
+          break;
 #endif // VAD_ADC
-      default:
-        break;
-    }
+        default:
+          break;
+      }
 
-    if( measDev.status.measStart ){
-      pData->prmPeakMin = min( pData->prmPeakMin, pData->prm );
-      pData->prmPeakMax = max( pData->prmPeakMax, pData->prm );
+      if( measDev.status.measStart ){
+        pData->prmPeakMin = min( pData->prmPeakMin, pData->prm );
+        pData->prmPeakMax = max( pData->prmPeakMax, pData->prm );
+      }
     }
   }
 

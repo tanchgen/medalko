@@ -96,7 +96,7 @@ size_t sendTmCont( uint8_t * buf ){
       if( sendCount == 0 ){
         sz += sprintf( ((char*)buf + sz), "%ld.%ld\n", \
                         measDev.secsStop,
-                        measDev.msecStart );
+                        measDev.msecStop );
       }
       else {
         memcpy( ((char*)buf + sz), "0.0\n", 4 );
@@ -392,8 +392,7 @@ void measClock( void ){
 #endif // SIMUL
         sendTout = mTick + USB_SEND_TOUT;
       }
-      else {
-        assert_param( sendState == SEND_END );
+      else if( sendState == SEND_END ) {
         measDev.status.sendStart = RESET;
         measDev.status.sent = SET;
         sendState = SEND_START;

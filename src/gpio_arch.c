@@ -12,12 +12,13 @@
 #endif // SIMUL
 
 sGpioPin gpioPinAlcoRst = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_SET, Bit_SET, RESET };
-sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_SET, Bit_SET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinBuzz = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 //sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin gpioPinUsbDp = {GPIOA, 0, GPIO_Pin_12, 12, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
+sGpioPin gpioPinUsbRst = {GPIOB, 1, GPIO_Pin_15, 15, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 #if PIN_TEST_EN
 sGpioPin gpioPinTest = {GPIOB, 1, GPIO_Pin_0, 0, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
@@ -400,9 +401,12 @@ void gpioInit( void ){
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
 
   // USB_HOST RESET
-  gpioPinSetup( &gpioPinUsbDp );
+  gpioPinSetup( &gpioPinUsbRst );
   mDelay( 200 );
-  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
+  gpioPinUsbRst.gpio->BSRR = gpioPinUsbRst.pin;
+//  gpioPinSetup( &gpioPinUsbDp );
+//  mDelay( 200 );
+//  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
 
   // ----------- TIMERS ---------------------------
   timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
