@@ -161,7 +161,7 @@ extern FlagStatus onCan;
 uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base);
 
 void pressProc( int32_t press, uint16_t * count );
-void alcoProc( int32_t alco );
+void alcoProc( int32_t alco, int32_t temp );
 void termProc( int32_t term );
 void totalProc( void );
 

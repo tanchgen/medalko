@@ -16,7 +16,8 @@
 #include "buffer.meas.h"
 
 
-const volatile sAlcoKn _alcoKn[ALCO_KN_NUM] __attribute__ ((section(".constdata"))) = {
+FlagStatus alcoKnFlag = RESET;
+const sAlcoKn _alcoKn[ALCO_KN_NUM] __attribute__ ((section(".constdata"))) = {
     {0,0},      // x0,y0
     {0,0},      // x1,y1
     {0,0},
@@ -107,7 +108,7 @@ size_t sendTmCont( uint8_t * buf ){
       if( sendCount == 0 ){
         sz += sprintf( ((char*)buf + sz), "%ld.%ld\n", \
                         measDev.secsStop,
-                        measDev.msecStart );
+                        measDev.msecStop );
       }
       else {
         memcpy( ((char*)buf + sz), "0.0\n", 4 );
@@ -263,7 +264,8 @@ void termProc( int32_t term ){
 
 
 // Обработка результатов ADC_ALCO
-void alcoProc( int32_t alco ){
+// temp - Температура в 0.1гр.Ц
+void alcoProc( int32_t alco, int32_t temp ){
   uint16_t termK;
   float b, k;
   uint8_t pakidx, pakidx2 = 0;       // Индекс массива поправочных коэффициентов
@@ -271,53 +273,58 @@ void alcoProc( int32_t alco ){
   sAlcoKn * palcok1 = 0;
 
   // ----- Поправочные коеффициенты --------
-  // Постоянный и Температурный
-  if( measDev.alcoData.temp >= 25 ){
-    termK = 11625 - 65 * measDev.alcoData.temp;
-    alco = (alco * measDev.alcoK0) / termK;
-  }
-  else if( measDev.alcoData.temp >= 25 ){
-    termK = 8720 + 64 * measDev.alcoData.temp;
-    alco = (alco * measDev.alcoK0) / termK;
-  }
-  else if( measDev.alcoK0 != 10000) {
-    alco = (alco * measDev.alcoK0) / 10000;
-  }
+  if( alco > (measAlkoLimMin / 2) ){
+    // Постоянный и Температурный
+    if( temp >= 250 ){
+      termK = 11625 - ((65 * temp) / 10);
+      alco = (alco * measDev.alcoK0) / termK;
+    }
+    else if( temp <= 200 ){
+      termK = 8720 + ((64 * temp) / 10);
+      alco = (alco * measDev.alcoK0) / termK;
+    }
+    else if( measDev.alcoK0 != 10000) {
+      alco = (alco * measDev.alcoK0) / 10000;
+    }
 
-  // К-Л аппроксимация
-  pakidx = 0;
-  if( alco >= measDev.alcoKn[pakidx].alcoKx ){
-    while( pakidx2 == 0 ){
-      if( alco < measDev.alcoKn[pakidx + 1].alcoKx ) {
-        pakidx2 = pakidx + 1;
-        palcok0 = &measDev.alcoKn[pakidx];
-        palcok1 = &measDev.alcoKn[pakidx2];
-        break;
+    if( alcoKnFlag ){
+      // К-Л аппроксимация
+      pakidx = 0;
+      if( alco >= measDev.alcoKn[pakidx].alcoKx ){
+        while( pakidx2 == 0 ){
+          if( alco < measDev.alcoKn[pakidx + 1].alcoKx ) {
+            pakidx2 = pakidx + 1;
+            palcok0 = &measDev.alcoKn[pakidx];
+            palcok1 = &measDev.alcoKn[pakidx2];
+            break;
+          }
+          else {
+            // Еще не нашли интервал
+            pakidx++;
+          }
+        }
+
+        if( pakidx2 != 0 ){
+          // k = (Y1 - Y0)/(X1 - X0);
+          // b = Y0 - k * X0
+          // lineB = (y1(x2-x1)-x1(y2-y1))/(x2-x1)
+          // lineK = (y1-B)/x1
+          k = (float)(palcok0->alcoKy - palcok0->alcoKy) / (float)(palcok1->alcoKx - palcok0->alcoKx);
+          b = (float)(palcok0->alcoKy) - (float)palcok0->alcoKx * k;
+          alco = alco * k + b;
+        }
+        else {
+          // Выше максимума диапозона К-Л аппроксимации
+        }
+
       }
       else {
-        // Еще не нашли интервал
-        pakidx++;
+        // Ниже минимума диапозона К-Л аппроксимации
       }
-    }
 
-    if( pakidx2 != 0 ){
-      // k = (Y1 - Y0)/(X1 - X0);
-      // b = Y0 - k * X0
-      // lineB = (y1(x2-x1)-x1(y2-y1))/(x2-x1)
-      // lineK = (y1-B)/x1
-      k = (float)(palcok0->alcoKy - palcok0->alcoKy) / (float)(palcok1->alcoKx - palcok0->alcoKx);
-      b = (float)(palcok0->alcoKy) - (float)palcok0->alcoKx * k;
-      alco = alco * k + b;
+    //  alco /= 10000;
     }
-    else {
-      // Выше максимума диапозона К-Л аппроксимации
-    }
-
   }
-  else {
-    // Ниже минимума диапозона К-Л аппроксимации
-  }
-
 
   if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
@@ -458,8 +465,7 @@ void measClock( void ){
 #endif // SIMUL
         sendTout = mTick + USB_SEND_TOUT;
       }
-      else {
-        assert_param( sendState == SEND_END );
+      else if( sendState == SEND_END ) {
         measDev.status.sendStart = RESET;
         measDev.status.sent = SET;
         sendState = SEND_START;
@@ -525,7 +531,11 @@ void measInit( void ){
   measPrmClean();
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
-  for( uint8_t i = 0; i < ALCO_KN_NUM; i++ ){
-    measDev.alcoKn[i] = _alcoKn[i];
+  if( _alcoKn[0].alcoKx != 0 ){
+    alcoKnFlag = SET;
+    for( uint8_t i = 0; i < ALCO_KN_NUM; i++ ){
+        measDev.alcoKn[i] = _alcoKn[i];
+    }
   }
+  measDev.alcoK0 = 10000;
 }

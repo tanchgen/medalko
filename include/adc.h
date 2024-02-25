@@ -57,10 +57,23 @@
 #error "PRESS_ADC not defined"
 #endif // PRESS_ADC
 
+#define ALCO_ADC          1
+#define ALCO_2_ADC        0
+#define VAD_ADC           0
+
 #define VDD_AVG           0
 #define TERM_AVG          0
+
+#if PRESS_ADC
 #define PRESS_AVG         1
+#endif // PRESS_ADC
 #define ALCO_AVG          0
+#if ALCO_2_ADC
+#define ALCO_2_AVG          0
+#endif // ALCO_2_ADC
+#if VAD_ADC
+#define VAD_AVG          0
+#endif // VAD_ADC
 
 #if VDD_AVG
 #define VDD_AVG_IDX      10
@@ -85,10 +98,16 @@ typedef enum {
   ADC_PRM_PRESS,
 #endif // PRESS_ADC
   ADC_PRM_ALCO,
-  ADC_PRM_ALCO2,
-  ADC_PRM_VAD,
+//  ADC_PRM_ALCO2,
+//  ADC_PRM_VAD,
   ADC_PRM_NUM
 } eAdcPrm;
+
+typedef struct {
+  uint8_t chNum;
+  sGpioPin gpioPin;
+  int32_t prmK;
+} sAdcPrmDef;
 
 typedef struct __attribute__((__packed__)){
 // ----------- ADC_PARAM_TM ---------------------
@@ -146,6 +165,7 @@ typedef struct {
   uint16_t pressCount;
   FlagStatus learnFlag;
   int32_t pressAvg;
+  int32_t alcoAvg;
 } sAdcHandle;
 
 // Структура флагов изменения значения параметра, пиков, порогов

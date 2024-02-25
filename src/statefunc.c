@@ -90,7 +90,7 @@ inline void stateOff( void ){
       timerMod( &measOnCanTimer, TOUT_1000*15 );
 //      timerMod( &measOnCanTimer, TOUT_1500 );
       // Включаем накачку помпы
-//      gpioPinSetNow( &gpioPinRelEn );
+      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
