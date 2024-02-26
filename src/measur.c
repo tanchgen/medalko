@@ -101,18 +101,14 @@ size_t sendTmCont( uint8_t * buf ){
         memcpy( (char*)buf, "0.0,0.0,", 8 );
         sz = 8;
       }
-      sz += sprintf( ((char*)buf + sz), "%d,%d,%d,", \
-                      rec.press,
-                      rec.alco,
-                      rec.temp );
-      if( sendCount == 0 ){
-        sz += sprintf( ((char*)buf + sz), "%ld.%ld\n", \
-                        measDev.secsStop,
-                        measDev.msecStop );
+      if( measDev.status.alcoLow == RESET ){
+        sz += sprintf( ((char*)buf + sz), "%d,%d,%d,0.0\n", \
+                        rec.press, rec.alco, rec.temp );
       }
       else {
-        memcpy( ((char*)buf + sz), "0.0\n", 4 );
-        sz += 4;
+        sz += sprintf( ((char*)buf + sz), "%d,%d,%d,", \
+                        rec.press, rec.alco, rec.temp );
+
       }
     }
   }
@@ -128,8 +124,11 @@ size_t sendTmEnd( uint8_t * buf ){
     sz = sprintf( (char*)buf, "],\"stopTime\":%ld.%ld}\n}\n\n", measDev.secsStop, measDev.msecStop );
   }
   else {
-    *buf = '\n';
-    sz = 1;
+    sz = sprintf( (char*)buf, "%ld.%03ld\n\n", \
+                    measDev.secsStop,measDev.msecStop );
+
+//    *buf = '\n';
+//    sz = 1;
   }
   return sz;
 }
@@ -429,7 +428,7 @@ void measClock( void ){
           sendState++;
           break;
         case SEND_GOON:
-          if( (size = sendTmCont( sendBuf )) == 0){
+          if( ((size = sendTmCont( sendBuf )) == 0) && (measDev.status.measStart == RESET) ){
             sendState++;
           }
           else {

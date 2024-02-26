@@ -142,6 +142,7 @@ inline void stateStart( void ){
         if( measDev.status.alcoHi || (measDev.tout < mTick)){
           // Alco превысил порог - можно измерять. Или таймаут превышения порога
           measDev.status.measStart = SET;
+          measDev.status.sendStart = SET;
           measDev.status.alcoLow = RESET;
 #if DEBUG_TRACE_RUN
           trace_printf(":Meas start\n");
@@ -196,11 +197,11 @@ inline void stateEnd( void ){
       case MSTATE_NON:
         gpioPinReset( &gpioPinBuzz );
         measDev.status.relEnd = RESET;
-        // TODO: Запуск оптавки данных
-#if DEBUG_TRACE_RUN
-        trace_printf(":Send start\n");
-#endif
-        measDev.status.sendStart = SET;
+//        // TODO: Запуск оптавки данных
+//#if DEBUG_TRACE_RUN
+//        trace_printf(":Send start\n");
+//#endif
+//        measDev.status.sendStart = SET;
         measRunWait = MSTATE_ON;
         break;
       case MSTATE_ON:
