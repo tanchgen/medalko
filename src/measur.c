@@ -428,11 +428,11 @@ void measClock( void ){
           sendState++;
           break;
         case SEND_GOON:
-          if( ((size = sendTmCont( sendBuf )) == 0) && (measDev.status.measStart == RESET) ){
-            sendState++;
+          if( (size = sendTmCont( sendBuf )) ){
+            sendCount++;
           }
-          else {
-          	sendCount++;
+          else if( measDev.status.measStart == RESET ){
+            sendState++;
           }
           break;
         case SEND_FIN:
@@ -468,7 +468,6 @@ void measClock( void ){
         measDev.status.sendStart = RESET;
         measDev.status.sent = SET;
         sendState = SEND_START;
-        sendCount = 0;
         sendTout = 0;
       }
     }
@@ -487,11 +486,16 @@ void measClock( void ){
       // Что-то приняли
       if( buffer_GetFree( &rxBuf ) >= len ){
         len -= buffer_Write( &rxBuf, rxbuf, len );
+        while( (parslen = buffer_FindChar( &rxBuf, '}')) >= 0 ){
+          buffer_Read( &rxBuf, parsbuf, parslen + 1 );
+          // Будем парсить принятое сообщение
+          receivParse( parsbuf, parslen );
+        }
       }
-      while( (parslen = buffer_FindChar( &rxBuf, '}')) >= 0 ){
-        buffer_Read( &rxBuf, parsbuf, parslen + 1 );
-        // Будем парсить принятое сообщение
-        receivParse( parsbuf, parslen );
+      else {
+        // Приемный буфер полный, а правильная строка не найдена - очищаем буфер
+        len = 0;
+        buffer_Reset( &rxBuf );
       }
     }
 
@@ -513,6 +517,11 @@ void measPrmClean( void ){
 void measStartClean( void ){
   measDev.status.u32stat = 0;
   measDev.sendProto = PROTO_CSV;
+  measDev.secsStart = 0;
+  measDev.msecStart = 0;
+  measDev.secsStart2 = 0;
+  measDev.msecStart2 = 0;
+  sendCount = 0;
 }
 
 
@@ -525,8 +534,8 @@ void measInit( void ){
 //  measDev.alcoData = tmpAd;
   measDev.sendProto = PROTO_CSV;
   measDev.relPulse = REL_PULSE_DEF;
-  measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
-  buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
+  measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX );
+  buffer_Init( &rxBuf, receivBuff, ARRAY_SIZE(receivBuff) );
   measPrmClean();
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;

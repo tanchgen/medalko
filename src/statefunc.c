@@ -28,25 +28,6 @@ eMiniState measRunWait = MSTATE_NON_2;
 #define SYS_OFF_REPAIR_TOUT   3000
 
 
-/* @brief Очистка флагов статуса при включении системы
- *
- * @param none
- *
- * @retval none
- */
-inline void sysOnClear( void ){
-//  sysFlags.sysOnSet = RESET;
-//  sysFlags.fpgaOnSet = RESET;
-//  sysFlags.logTm = RESET;
-//  sysFlags.mbErr = RESET;
-//  sysFlags.caterr = RESET;
-//  alertFlag = RESET;
-//  alrmFlag = RESET;
-//  intel.iErr = RESET;
-
-}
-
-
 /**
  * @brief Функции обработки состояния MCUSTATE_SYS_OFF системы
   *
