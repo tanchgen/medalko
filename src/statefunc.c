@@ -156,12 +156,13 @@ inline void stateStart( void ){
 inline void stateFlow( void ){
   // case MEASST_FLOW_PROB:   // Система закончила забор проб
   if( measRun == SET ){
-    if( measDev.status.alcoLow ){
+    if( measDev.status.alcoLow /*|| (measDev.dataNum == MEAS_SEQ_NUM_MAX)*/ ){
       // Значение ALCO меньше порогового - закончили забор проб
       measDev.secsStop = secs;
       measDev.msecStop = msecs;
       measDev.status.measStart = RESET;
       measDev.status.pressOk = RESET;
+      measDev.status.alcoHi = RESET;
 #if DEBUG_TRACE_RUN
       trace_printf(":Alko low. Meas stop\n");
 #endif
