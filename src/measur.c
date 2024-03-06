@@ -126,6 +126,7 @@ size_t sendTmEnd( uint8_t * buf ){
 // -------------------- Received parcing -----------------------------------------------
 uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   uint32_t rxlen;
+  uint16_t press;
 
 #if 0     // ------------------- Низкий уровень -----------------------------------
   eRxPrm rxPrmFlag = RX_PRM_NUM;
@@ -165,7 +166,8 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
     rxBuf++;
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
-      (uint*)&measDev.pressLimMinStart, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+      (uint*)&press, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+  measDev.pressLimMinStart = press;
 #endif  // ---------------------------------------------------------------------
 
   return rxlen;
@@ -259,6 +261,9 @@ void alcoProc( int32_t alco ){
       if( alco < measAlkoLimMin ){
         // Значение ALCO упало ниже порога - будем завершать данный цикл
         measDev.status.alcoLow = SET;
+#if SIMUL
+        measDev.status.alcoSimOn = RESET;
+#endif //SIMUL
       }
     }
     else if( alco > measAlkoLimMin ){
@@ -284,8 +289,9 @@ void continueStart( void ){
   sendState = SEND_CONT;
   onCan = RESET;
   measOnNeed = RESET;
-  measState = MEASST_FIN;
-  measRun = SET;
+  measState = MEASST_OFF;
+  measRun = RESET;
+  measRunWait = MSTATE_OFF;
   timerDel( &measOnCanTimer );
   measBuf_Reset( &measBuf );
   measDev.tout = mTick + measDev.prmPumpPeriod;

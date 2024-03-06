@@ -378,6 +378,7 @@ void adcProcess( uintptr_t arg ){
         break;
       }
       case ADC_PRM_PRESS:     // Давление Pa = mV
+#if !SIMUL
         // Вычисляем напряжение
         if( adcHandle.learnFlag ){
             if( ++adcHandle.pressCount <= LEARN_COUNT_MAX ){
@@ -413,7 +414,6 @@ void adcProcess( uintptr_t arg ){
 
           pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcKprm[i])/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
-#if !SIMUL
           if( pData->prm < measDev.pressLimMinStop/2) {
             static float ftmp;
 
@@ -434,7 +434,9 @@ void adcProcess( uintptr_t arg ){
 
           }
 */
+          pressProc( pData->prm, &adcHandle.pressCount );
 
+        }
 #else // SIMUL
 //          if( pData->prm == 0 ){
 //            pData->prm = prm;
@@ -446,25 +448,24 @@ void adcProcess( uintptr_t arg ){
                 pData->prm += 5;
               }
             }
-            else if( (measState != MEASST_OFF) && (measState < MEASST_END_PROB) ){
-              if(pData->prm > 100 ){
-                pData->prm -= 1;
-              }
-            }
+//            else if( (measState != MEASST_OFF) && (measState < MEASST_END_PROB) ){
+//              if(pData->prm > 100 ){
+//                pData->prm -= 1;
+//              }
+//            }
             else if(pData->prm > 1 ){
               pData->prm -= 1;
             }
           }
-#endif // SIMUL
           pressProc( pData->prm, &adcHandle.pressCount );
 
-        }
+#endif // SIMUL
         break;
       case ADC_PRM_TERM: {
         // Вычисляем напряжение
         uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
         // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
-        adcHandle.adcData[i].prm = (int32_t)(1000.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 273000;
+        adcHandle.adcData[i].prm = (int32_t)(10.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 2730;
         termProc( adcHandle.adcData[i].prm );
         break;
       }
@@ -473,12 +474,32 @@ void adcProcess( uintptr_t arg ){
 #if !SIMUL
         adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
 #else // SIMUL
-        if( measDev.status.measStart == RESET ){
-//          adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
-          adcHandle.adcData[i].prm = 1500;
-        }
-        else {
-          adcHandle.adcData[i].prm -= 4;
+        {
+          static int16_t atmp;
+          static FlagStatus alcoSt;
+          static int8_t incr;
+
+          if( alcoSt == RESET ) {
+            if( measDev.status.alcoSimOn ) {
+              alcoSt = SET;
+              incr = 10;
+            }
+          }
+          else {
+            if( measDev.status.alcoSimOn == RESET ) {
+              alcoSt = RESET;
+              atmp = 0;
+              adcHandle.adcData[i].prm = 0;
+            }
+            else {
+              if( (atmp >= 1500) ){
+                incr = -2;
+              }
+              atmp += incr;
+              assert_param( (atmp < 1520) && (atmp >= 0) );
+              adcHandle.adcData[i].prm = atmp / 10;
+            }
+          }
         }
 #endif // SIMUL
         alcoProc( adcHandle.adcData[i].prm );

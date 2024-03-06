@@ -82,7 +82,7 @@ inline void stateOff( void ){
       }
 #endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1000 * 10 );
-      gpioPinResetNow( &gpioPinRelEn );
+      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
@@ -123,6 +123,10 @@ inline void stateStart( void ){
 #if DEBUG_TRACE_RUN
           trace_printf(":Solenoid stop\n");
 #endif
+#if SIMUL
+          measDev.status.alcoSimOn = SET;
+#endif //SIMUL
+
           measDev.tout = mTick + ALCO_TOUT_MIN;
           measRunWait = MSTATE_ON;
         }

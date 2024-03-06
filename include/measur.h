@@ -61,6 +61,9 @@ typedef union _sMeasStatus {
     uint32_t pressFaultLow: 1;
     uint32_t alcoLow: 1;
     uint32_t alcoHi: 1;
+#if SIMUL
+    uint32_t alcoSimOn: 1;
+#endif //SIMUL
     uint32_t relStart: 1;
     uint32_t relEnd: 1;
     uint32_t sendStart: 1;
