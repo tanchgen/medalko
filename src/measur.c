@@ -58,16 +58,20 @@ size_t sendTmCont( uint8_t * buf ){
 //  uint32_t i = sendCount;
   uint32_t sz = 0;
   sMeasRec rec;
+  eSendProto proto;
 
   if( measBuf_Read( &measBuf, &rec, 1 ) != 0 ){
 #ifdef  USE_FULL_ASSERT
     if( measDev.status.cont ){
-      assert_param( measDev.sendProto == PROTO_JSON );
+      proto = PROTO_JSON;
       assert_param( sendCount == 0 );
+    }
+    else {
+      proto = measDev.sendProto;
     }
 #endif // USE_FULL_ASSERT
 
-    if( measDev.sendProto == PROTO_JSON ){
+    if( proto == PROTO_JSON ){
       if( sendCount ){
         // Не первая запись - добавим запяту, разделяющую записи
         *buf++ = ',';
@@ -294,6 +298,7 @@ void continueStart( void ){
   measRunWait = MSTATE_OFF;
   timerDel( &measOnCanTimer );
   measBuf_Reset( &measBuf );
+  measDev.status.sendStart = SET;
   measDev.tout = mTick + measDev.prmPumpPeriod;
 }
 
@@ -301,6 +306,7 @@ void continueStart( void ){
 void continueStop( void ){
   measDev.status.cont = RESET;
   sendState = SEND_START;
+  measDev.status.sendStart = RESET;
   timerMod( &measOnCanTimer, TOUT_1500 );
   // Очистка буфера
   measBuf_Reset( &measBuf );
@@ -343,7 +349,7 @@ void measClock( void ){
         // Неудалось отправить
         errCount = 0;
         measDev.status.sendStart = RESET;
-        measDev.status.cont = RESET;
+        measDev.prmContinuous = RESET;
         sendState = SEND_START;
         measRunWait = MSTATE_NON;
         measState = MEASST_FAULT;

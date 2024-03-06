@@ -80,12 +80,14 @@ void movAvgS( int32_t *avg, int32_t pt, const uint8_t kavg  ){
 }
 #endif //PRESS_AVG  || ALCO_AVG
 
+#if VDD_AVG || _5V_AVG || (PRESS_AVG && !SIMUL)
 // Расчет скользящего среднего беззнакового
 static inline void movAvgF( float *avg, float pt, const uint8_t kavg  ){
   const float a = 2.0 / (1.0 + kavg);
   float tmp = *avg;
   *avg = (pt * a + (tmp * (1 - a)) );
 }
+#endif  // VDD_AVG || _5V_AVG || (PRESS_AVG && !SIMUL)
 
 //inline void adcDataReset( sAdcHandle * adc, eAdcPrm num ){
 //  timerModArg( &adcPeakTimer, TOUT_100, num );adcHandle.pressAvg -
