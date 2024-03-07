@@ -60,10 +60,10 @@ static void measOnCan(uintptr_t arg){
   }
   else {
     onCan = SET;
-  }
 #if SIMUL
-  simulStart = mTick + 2000;
+    simulStart = mTick + 2000;
 #endif // SIMUL
+  }
 }
 
 

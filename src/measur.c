@@ -15,6 +15,10 @@
 #include "measur.h"
 #include "buffer.meas.h"
 
+#if SIMUL
+  extern uint32_t simulStart;
+#endif // SIMUL
+
 eMeasState measState = MEASST_OFF;
 FlagStatus measOnNeed = RESET;
 FlagStatus measRun = RESET;
@@ -171,8 +175,15 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
       (uint*)&press, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
-  measDev.pressLimMinStart = press;
 #endif  // ---------------------------------------------------------------------
+  measDev.pressLimMinStart = press;
+  // Секунды переводим в мс
+  measDev.prmPumpPeriod *= 1000;
+  if(measDev.prmContinuous &&
+      ((measState == MEASST_OFF) && (measRun == RESET) && (measRunWait != MSTATE_NON)))
+  {
+    timerMod( &measOnCanTimer, TOUT_100);
+  }
 
   return rxlen;
 }
@@ -318,6 +329,9 @@ void continueProc( void ){
     // Включаем соленоид
     measDev.status.relStart = SET;
     measDev.tout = mTick + measDev.prmPumpPeriod;
+#if SIMUL
+    simulStart = mTick;
+#endif // SIMUL
   }
 }
 
