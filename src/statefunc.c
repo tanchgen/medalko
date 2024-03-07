@@ -82,7 +82,7 @@ inline void stateOff( void ){
       }
 #endif // SIMUL
       timerMod( &measOnCanTimer, TOUT_1000 * 10 );
-      gpioPinResetNow( &gpioPinRelEn );
+      gpioPinSetNow( &gpioPinRelEn );
       measRunWait = MSTATE_OFF;
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
@@ -123,6 +123,10 @@ inline void stateStart( void ){
 #if DEBUG_TRACE_RUN
           trace_printf(":Solenoid stop\n");
 #endif
+#if SIMUL
+          measDev.status.alcoSimOn = SET;
+#endif //SIMUL
+
           measDev.tout = mTick + ALCO_TOUT_MIN;
           measRunWait = MSTATE_ON;
         }
@@ -156,12 +160,13 @@ inline void stateStart( void ){
 inline void stateFlow( void ){
   // case MEASST_FLOW_PROB:   // Система закончила забор проб
   if( measRun == SET ){
-    if( measDev.status.alcoLow ){
+    if( measDev.status.alcoLow /*|| (measDev.dataNum == MEAS_SEQ_NUM_MAX)*/ ){
       // Значение ALCO меньше порогового - закончили забор проб
       measDev.secsStop = secs;
       measDev.msecStop = msecs;
       measDev.status.measStart = RESET;
       measDev.status.pressOk = RESET;
+      measDev.status.alcoHi = RESET;
 #if DEBUG_TRACE_RUN
       trace_printf(":Alko low. Meas stop\n");
 #endif

@@ -18,6 +18,8 @@
 
 #define REL_PULSE_DEF     200   // Длина импульса реле по умолчанию
 #define ALCO_TOUT_MIN     500   // Время ожидания срабатывания порога ALCO после выключения соленоида
+#define PRESS_LIMIT_MIN   100
+
 
 typedef enum {
   PROTO_JSON,
@@ -59,6 +61,9 @@ typedef union _sMeasStatus {
     uint32_t pressFaultLow: 1;
     uint32_t alcoLow: 1;
     uint32_t alcoHi: 1;
+#if SIMUL
+    uint32_t alcoSimOn: 1;
+#endif //SIMUL
     uint32_t relStart: 1;
     uint32_t relEnd: 1;
     uint32_t sendStart: 1;

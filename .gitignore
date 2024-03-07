@@ -3,3 +3,5 @@
 /doc/
 /*.hex
 /Simul/
+/Doc/
+*.pdf

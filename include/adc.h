@@ -22,6 +22,7 @@
 #define ADC_CH_NUM    4
 #define VDD_CH        17
 #define TEMP_CH       0
+#define _5V_CH        6
 #define PRESS_CH      1
 #define ALCO_CH       2
 
@@ -60,30 +61,36 @@
 
 
 
-#define VDD_AVG           1
+#define VDD_AVG           0
+#define _5V_AVG           0
 #define TERM_AVG          0
-#define PRESS_AVG         0
+#define PRESS_AVG         1
 #define ALCO_AVG          0
 
-#if PRESS_AVG
-#define PRESS_AVRG_IDX      10
-#endif //PRESS_AVG
-
 #if VDD_AVG
-#define VDD_AVRG_IDX      10
+#define VDD_AVG_IDX      10
 #endif //VDD_AVG
 
+#if _5V_AVG
+#define _5V_AVG_IDX      10
+#endif //VDD_AVG
+
+#if PRESS_AVG
+#define PRESS_AVG_IDX      10
+#endif //ALCO_AVG
+
 #if ALCO_AVG
-#define ALCO_AVRG_IDX      10
+#define ALCO_AVG_IDX      10
 #endif //ALCO_AVG
 
 #if TERM_AVG
-#define TERM_AVRG_IDX      10
+#define TERM_AVG_IDX      10
 #endif //TERM_AVG
 
 typedef enum {
   ADC_PRM_VDD,
   ADC_PRM_TERM,
+  ADC_PRM_5V,
   ADC_PRM_PRESS,
   ADC_PRM_ALCO,
   ADC_PRM_NUM
@@ -145,6 +152,7 @@ typedef struct {
   uint16_t pressCount;
   FlagStatus learnFlag;
   int32_t pressAvg;
+  int32_t pressOffset;
 } sAdcHandle;
 
 // Структура флагов изменения значения параметра, пиков, порогов
