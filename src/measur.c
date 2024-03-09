@@ -182,9 +182,7 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   measDev.prmContinuous = (measDev.prmContinuous)? SET : RESET;  // Или 0, или 1
   measDev.pressLimMinStart = measDev.prmPressMin;
   measDev.pressLimMinStop = measDev.prmPressMin - 10;
-
-  measDev.pressLimMinStart = measDev.prmPressMin;
-  measDev.pressLimMinStop = measDev.prmPressMin - 10;
+  measDev.pressLimMax = measDev.prmPressMin * 3;
 
 #endif  // ---------------------------------------------------------------------
 
@@ -245,6 +243,10 @@ void pressProc( int32_t press, uint16_t * count ){
             tmp = MEAS_TIME_MAX - tmp;
             // Корректируем время
             measDev.tout = measDev.tout0 + tmp;
+          }
+          if( measDev.tout < mTick ){
+            // Набрали достаточно воздуха
+            measDev.status.pressOk = SET;
           }
         }
       }
@@ -328,8 +330,9 @@ void alcoProc( int32_t alco, int32_t temp ){
   if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
     measDev.alcoData.alco = alco;
-    if( alco < measAlkoLimMin ){
+    if( alco < measAlkoLimMin && (measDev.alcoTout < mTick) ){
       // Значение ALCO упало ниже порога - будем завершать данный цикл
+      measDev.status.alcoHi = RESET;
       measDev.status.alcoLow = SET;
       // Выключение АЛКОМЕТРА
       gpioPinSetNow( &gpioPinAlcoRst );
@@ -337,6 +340,7 @@ void alcoProc( int32_t alco, int32_t temp ){
   }
   else if( alco > measAlkoLimMin ){
     measDev.status.alcoHi = SET;
+    measDev.status.alcoLow = RESET;
   }
 }
 

@@ -104,6 +104,9 @@ typedef struct _sMeasur {
   uint32_t tout;
   uint32_t count;
 
+  uint32_t alcoTout;
+  uint32_t buzzTout;
+
   uint32_t secsStart;
   uint32_t msecStart;
 

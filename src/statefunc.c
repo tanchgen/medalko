@@ -68,6 +68,7 @@ inline void stateOff( void ){
         return;
       }
 #endif // SIMUL
+      measDev.status.pressOk = RESET;
       timerMod( &measOnCanTimer, TOUT_1000*15 );
 //      timerMod( &measOnCanTimer, TOUT_1500 );
       // Включаем накачку помпы
@@ -95,10 +96,9 @@ inline void stateStart( void ){
     switch( measRunWait ){
       case MSTATE_NON:
         // Проверка по времени
-        if( measDev.tout < mTick ){
+        if( measDev.status.pressOk ){
           measDev.secsStart = secs;
           measDev.msecStart = msecs;
-          measDev.status.pressOk = SET;
           // Запуск соленоида
           measDev.status.relStart = SET;
           measDev.rel = SET;
@@ -113,18 +113,18 @@ inline void stateStart( void ){
 #if DEBUG_TRACE_RUN
           trace_printf(":Solenoid stop\n");
 #endif
-          measDev.tout = mTick + ALCO_TOUT_MIN;
+          measDev.alcoTout = mTick + ALCO_TOUT_MIN;
           // Максимальное время измерения ALCO
           timerMod( &alcoOffTimer, ALCO_TOUT_MAX );
           measRunWait = MSTATE_ON;
         }
         break;
       case MSTATE_ON:
-        if( measDev.status.alcoHi || (measDev.tout < mTick)){
+        if( measDev.status.alcoHi || (measDev.alcoTout < mTick)){
           // Alco превысил порог - можно измерять. Или таймаут превышения порога
           measDev.status.measStart = SET;
           measDev.status.sendStart = SET;
-          measDev.status.alcoLow = RESET;
+          measDev.alcoTout = mTick + ALCO_TOUT_MIN;
 #if DEBUG_TRACE_RUN
           trace_printf(":Meas start\n");
 #endif
@@ -154,7 +154,6 @@ inline void stateFlow( void ){
       measDev.secsStop = secs;
       measDev.msecStop = msecs;
       measDev.status.measStart = RESET;
-      measDev.status.pressOk = RESET;
 #if DEBUG_TRACE_RUN
       trace_printf(":Alko low. Meas stop\n");
 #endif
@@ -260,7 +259,7 @@ inline void stateFault( void ){
       case MSTATE_NON:
         // Запуск троекратного зума
         gpioPinReset( &gpioPinBuzz );
-        measDev.tout = mTick + 1000;
+        measDev.buzzTout = mTick + 1000;
         measDev.count = 0;
         measRunWait = MSTATE_ON;
 #if DEBUG_TRACE_RUN
@@ -268,9 +267,9 @@ inline void stateFault( void ){
 #endif
         break;
       case MSTATE_ON:
-        if( measDev.tout < mTick ){
+        if( measDev.buzzTout < mTick ){
           //gpioPinSet( &gpioPinBuzz );
-          measDev.tout = mTick + 300;
+          measDev.buzzTout = mTick + 300;
           measRunWait = MSTATE_ON_OK;
 #if DEBUG_TRACE_RUN
           trace_printf(":Fault on %d\n", measDev.count );
@@ -278,7 +277,7 @@ inline void stateFault( void ){
         }
         break;
       case MSTATE_ON_OK:
-        if( measDev.tout < mTick ){
+        if( measDev.buzzTout < mTick ){
           gpioPinReset( &gpioPinBuzz );
           if( ++measDev.count == 3 ){
             // Пропикало Третий раз
@@ -287,7 +286,7 @@ inline void stateFault( void ){
             measRunWait = MSTATE_NON;
           }
           else {
-            measDev.tout = mTick + 300;
+            measDev.buzzTout = mTick + 300;
             measRunWait = MSTATE_ON;
           }
         }

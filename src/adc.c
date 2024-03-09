@@ -430,7 +430,7 @@ void adcProcess( uintptr_t arg ){
           pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcPrmDef[i].prmK)/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
 #if !SIMUL
-          if( (pData->prm > 1000) || (pData->prm < -1000) ){
+          if( (pData->prm > (PRESS_LIMIT_MIN * 30)) || (pData->prm < (PRESS_LIMIT_MIN * -30)) ){
             pData->prm = 0;
           }
           else if( pData->prm < measDev.pressLimMinStop/2 ){
