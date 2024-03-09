@@ -186,8 +186,9 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
                 (uint*)&press, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
   measDev.prmPressMin = max( press, 40 );  // Нижний порог = 30
-  // Секунды переводим в мс
-  measDev.prmPumpPeriod = max( measDev.prmPumpPeriod * 1000, 10000 );  // Минимальный интервал = 10с
+  // Период срабатывания помпы: 1/2 периода - пауза после включения помпы, 1/2 периода - зарядка конденсатора помпы
+  // Минимальный интервал = 10с. Секунды переводим в мс
+  measDev.prmPumpPeriod = max( measDev.prmPumpPeriod * (1000 / 2), 5000 );
   measDev.prmContinuous = (measDev.prmContinuous)? SET : RESET;  // Или 0, или 1
   measDev.pressLimMinStart = measDev.prmPressMin;
   measDev.pressLimMinStop = measDev.prmPressMin - 10;
@@ -397,7 +398,6 @@ void continueStart( void ){
   timerDel( &measOnCanTimer );
   measBuf_Reset( &measBuf );
   measDev.status.sendStart = SET;
-  measDev.tout = mTick + measDev.prmPumpPeriod;
 }
 
 
@@ -413,12 +413,23 @@ void continueStop( void ){
 
 void continueProc( void ){
   if( measDev.contRelTout && (measDev.contRelTout < mTick) ){
-    // Включаем соленоид
-    measDev.status.relStart = SET;
-    measDev.contRelTout = measDev.prmPumpPeriod + mTick;
+    if( measDev.status.relEnd ){
+      // Выключение АЛКОМЕТРА
+      gpioPinSetNow( &gpioPinAlcoRst );
+      // Включаем зарядку помпы
+      gpioPinSetNow( &gpioPinRelEn );
+      measDev.status.relEnd = RESET;
+    }
+    else {
+      // Включаем соленоид
+      measDev.status.relStart = SET;
+      // Включение АЛКОМЕТРА
+      gpioPinResetNow( &gpioPinAlcoRst );
 #if SIMUL
-    simulStart = mTick;
+      simulStart = mTick;
 #endif // SIMUL
+    }
+    measDev.contRelTout = measDev.prmPumpPeriod + mTick;
   }
 }
 
@@ -510,6 +521,7 @@ void measClock( void ){
         measDev.status.sendStart = RESET;
         measDev.status.sent = SET;
         sendState = SEND_START;
+        sendCount = 0;
         sendTout = 0;
       }
     }
