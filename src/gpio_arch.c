@@ -15,7 +15,6 @@ sGpioPin gpioPinAlcoRst = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPUL
 sGpioPin gpioPinRelEn = {GPIOA, 0, GPIO_Pin_5, 5, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_SET, Bit_SET, RESET };
 sGpioPin gpioPinRelOn = {GPIOA, 0, GPIO_Pin_4, 4, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinBuzz = {GPIOA, 0, GPIO_Pin_8, 8, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
-//sGpioPin gpioPinAlcoRes = {GPIOA, 0, GPIO_Pin_3, 3, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 
 sGpioPin gpioPinUsbDp = {GPIOA, 0, GPIO_Pin_12, 12, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
 sGpioPin gpioPinUsbRst = {GPIOB, 1, GPIO_Pin_15, 15, GPIO_MODE_OPP_10, GPIO_NOPULL, Bit_RESET, Bit_RESET, RESET };
@@ -62,10 +61,10 @@ static void measOnCan(uintptr_t arg){
   }
   else {
     onCan = SET;
-  }
 #if SIMUL
-  simulStart = mTick + 2000;
+    simulStart = mTick + 2000;
 #endif // SIMUL
+  }
 }
 
 
@@ -174,7 +173,6 @@ void REL_PULSE_TIM_IRQH( void ) {
   // Выключаем соленоид
   gpioPinResetNow( &gpioPinRelOn );
   measDev.status.relEnd = SET;
-  measDev.rel = RESET;
 }
 
 
@@ -407,6 +405,11 @@ void gpioInit( void ){
 //  gpioPinSetup( &gpioPinUsbDp );
 //  mDelay( 200 );
 //  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
+
+  // USB_HOST RESET
+  gpioPinSetup( &gpioPinUsbDp );
+  mDelay( 200 );
+  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
 
   // ----------- TIMERS ---------------------------
   timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );

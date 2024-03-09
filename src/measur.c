@@ -26,6 +26,9 @@ const sAlcoKn _alcoKn[ALCO_KN_NUM] __attribute__ ((section(".constdata"))) = {
     {0,0},
     {0,0}
 };
+#if SIMUL
+  extern uint32_t simulStart;
+#endif // SIMUL
 
 eMeasState measState = MEASST_OFF;
 FlagStatus measOnNeed = RESET;
@@ -70,16 +73,20 @@ size_t sendTmCont( uint8_t * buf ){
 //  uint32_t i = sendCount;
   uint32_t sz = 0;
   sMeasRec rec;
+  eSendProto proto;
 
   if( measBuf_Read( &measBuf, &rec, 1 ) != 0 ){
 #ifdef  USE_FULL_ASSERT
     if( measDev.status.cont ){
-      assert_param( measDev.sendProto == PROTO_JSON );
+      proto = PROTO_JSON;
       assert_param( sendCount == 0 );
+    }
+    else {
+      proto = measDev.sendProto;
     }
 #endif // USE_FULL_ASSERT
 
-    if( measDev.sendProto == PROTO_JSON ){
+    if( proto == PROTO_JSON ){
       if( sendCount ){
         // Не первая запись - добавим запяту, разделяющую записи
         *buf++ = ',';
@@ -137,6 +144,7 @@ size_t sendTmEnd( uint8_t * buf ){
 // -------------------- Received parcing -----------------------------------------------
 uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   uint32_t rxlen;
+  uint16_t press;
 
 #if 0     // ------------------- Низкий уровень -----------------------------------
   eRxPrm rxPrmFlag = RX_PRM_NUM;
@@ -176,15 +184,21 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
     rxBuf++;
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
-      (uint*)&measDev.prmPressMin, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
-  measDev.prmPressMin = max( measDev.prmPressMin, 40 );  // Нижний порог = 30
-  measDev.prmPumpPeriod = max( measDev.prmPumpPeriod, 10000 );  // Минимальный интервал = 10с
+                (uint*)&press, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+  measDev.prmPressMin = max( press, 40 );  // Нижний порог = 30
+  // Секунды переводим в мс
+  measDev.prmPumpPeriod = max( measDev.prmPumpPeriod * 1000, 10000 );  // Минимальный интервал = 10с
   measDev.prmContinuous = (measDev.prmContinuous)? SET : RESET;  // Или 0, или 1
   measDev.pressLimMinStart = measDev.prmPressMin;
   measDev.pressLimMinStop = measDev.prmPressMin - 10;
   measDev.pressLimMax = measDev.prmPressMin * 3;
 
 #endif  // ---------------------------------------------------------------------
+  if(measDev.prmContinuous &&
+      ((measState == MEASST_OFF) && (measRun == RESET) && (measRunWait != MSTATE_NON)))
+  {
+    timerMod( &measOnCanTimer, TOUT_100);
+  }
 
   return rxlen;
 }
@@ -203,46 +217,50 @@ uint8_t my_itoa(int32_t value, uint8_t * buf, int8_t base){
 
 // Обработка результата ADC_PRESS
 void pressProc( int32_t press, uint16_t * count ){
-  if( measState == MEASST_OFF ){
+  if( measDev.status.cont ){
+    // Постоянный сбор данных: созраняем полученое значение
+    measDev.alcoData.press = press;
+  }
+  else {
+    if( measState == MEASST_OFF ){
       if( (press > measDev.pressLimMinStart) && onCan ){
         // Давление выше минимального порога - Запускаем процесс забора проб
-        // Обнуляем счетчик усреднения
-        *count = 0;
         measOnNeed = SET;
         measDev.tout0 = mTick;
       }
-  }
-  else if( measState < MEASST_END_PROB ){
-    if( (measDev.status.relEnd == RESET) && (press < measDev.pressLimMinStop) ){
-      if( measDev.status.pressFaultLow == RESET ){
-        measDev.status.pressFaultLow = SET;
-        measRunWait = MSTATE_NON;
-        measState = MEASST_FAULT;
-      }
     }
-    else {
-      if( measDev.status.measStart ){
-        // Забор проб: созраняем полученое значение
-        measDev.alcoData.press = press;
+    else if( measState < MEASST_END_PROB ){
+      if( (measDev.status.relEnd == RESET) && (press < measDev.pressLimMinStop) ){
+        if( measDev.status.pressFaultLow == RESET ){
+          measDev.status.pressFaultLow = SET;
+          measRunWait = MSTATE_NON;
+          measState = MEASST_FAULT;
+        }
       }
       else {
-        if ( measDev.status.pressOk == RESET ){
-          // Период ПЕРЕД забором проб
-          (*count)++;
-          pressAvg += press;
-          press = pressAvg / *count;
-          if( press >= measPressLimMax ){
-            measDev.tout = measDev.tout0 + MEAS_TIME_MIN;
-          }
-          else {
-            float tmp;
+        if( measDev.status.measStart ){
+          // Забор проб: созраняем полученое значение
+          measDev.alcoData.press = press;
+        }
+        else {
+          if ( measDev.status.pressOk == RESET ){
+            // Период ПЕРЕД забором проб
+            (*count)++;
+            pressAvg += press;
+            press = pressAvg / *count;
+            if( press >= measPressLimMax ){
+              measDev.tout = measDev.tout0 + MEAS_TIME_MIN;
+            }
+            else {
+              float tmp;
 
-            tmp = (((press - measDev.pressLimMinStop) * 1000)/(measPressLimMax - measDev.pressLimMinStop));
-            tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
-            tmp /= 1000;
-            tmp = MEAS_TIME_MAX - tmp;
-            // Корректируем время
-            measDev.tout = measDev.tout0 + tmp;
+              tmp = (((press - measDev.pressLimMinStop) * 1000)/(measPressLimMax - measDev.pressLimMinStop));
+              tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
+              tmp /= 1000;
+              tmp = MEAS_TIME_MAX - tmp;
+              // Корректируем время
+              measDev.tout = measDev.tout0 + tmp;
+            }
           }
           if( measDev.tout < mTick ){
             // Набрали достаточно воздуха
@@ -257,8 +275,8 @@ void pressProc( int32_t press, uint16_t * count ){
 
 // Обработка результатов ADC_TEMPERATURE
 void termProc( int32_t term ){
-  if( measDev.status.measStart ){
-    // Забор проб: созраняем полученое значение
+  if( measDev.status.measStart || measDev.status.cont ){
+    // Забор проб ИЛИ постоянный сбор данных: созраняем полученое значение
     measDev.alcoData.temp = term;
   }
 }
@@ -327,7 +345,11 @@ void alcoProc( int32_t alco, int32_t temp ){
     }
   }
 
-  if( measDev.status.measStart ){
+  if( measDev.status.cont ){
+    // Постоянный сбор данных: созраняем полученое значение
+    measDev.alcoData.alco = alco;
+  }
+  else if( measDev.status.measStart ){
     // Забор проб: созраняем полученое значение
     measDev.alcoData.alco = alco;
     if( alco < measAlkoLimMin && (measDev.alcoTout < mTick) ){
@@ -336,18 +358,23 @@ void alcoProc( int32_t alco, int32_t temp ){
       measDev.status.alcoLow = SET;
       // Выключение АЛКОМЕТРА
       gpioPinSetNow( &gpioPinAlcoRst );
+#if SIMUL
+        measDev.status.alcoSimOn = RESET;
+#endif //SIMUL
     }
   }
   else if( alco > measAlkoLimMin ){
     measDev.status.alcoHi = SET;
     measDev.status.alcoLow = RESET;
   }
+  else {
+  }
 }
 
 
 // Финальная обработка результатов ADC
 void totalProc( void ){
-  if( measDev.status.measStart ){
+  if( measDev.status.measStart || measDev.status.cont ){
     // Все данные сохранили
     if( measBuf_Write( &measBuf, &measDev.alcoData, 1 ) == 0 ){
       trace_puts("\t=== Buffer if FULL ===");
@@ -357,21 +384,28 @@ void totalProc( void ){
 
 
 void continueStart( void ){
-  measDev.status.measStart = SET;
   measDev.status.cont = SET;
   measDev.sendProto = PROTO_JSON;
   measDev.status.sendStart = SET;
   measDev.contRelTout = measDev.prmPumpPeriod + mTick;
   sendState = SEND_CONT;
+  onCan = RESET;
+  measOnNeed = RESET;
+  measState = MEASST_OFF;
+  measRun = RESET;
+  measRunWait = MSTATE_OFF;
+  timerDel( &measOnCanTimer );
+  measBuf_Reset( &measBuf );
+  measDev.status.sendStart = SET;
+  measDev.tout = mTick + measDev.prmPumpPeriod;
 }
 
 
 void continueStop( void ){
   measDev.status.cont = RESET;
-  measDev.status.measStart = RESET;
-  sendState = SEND_END;
-  measRunWait = MSTATE_NON;
-  measState = MEASST_OFF;
+  sendState = SEND_START;
+  measDev.status.sendStart = RESET;
+  timerMod( &measOnCanTimer, TOUT_1500 );
   // Очистка буфера
   measBuf_Reset( &measBuf );
 }
@@ -382,6 +416,9 @@ void continueProc( void ){
     // Включаем соленоид
     measDev.status.relStart = SET;
     measDev.contRelTout = measDev.prmPumpPeriod + mTick;
+#if SIMUL
+    simulStart = mTick;
+#endif // SIMUL
   }
 }
 
@@ -413,12 +450,13 @@ void measClock( void ){
         // Неудалось отправить
         errCount = 0;
         measDev.status.sendStart = RESET;
-        measDev.status.cont = RESET;
+        measDev.prmContinuous = RESET;
         sendState = SEND_START;
         measRunWait = MSTATE_NON;
         measState = MEASST_FAULT;
         // Очистка буфера
         measBuf_Reset( &measBuf );
+        N_JUMBO_SUBPACKETS = 0;
       }
       else {
         sendTout = mTick + USB_SEND_TOUT;
@@ -520,6 +558,8 @@ void measPrmClean( void ){
 
 void measStartClean( void ){
   measDev.status.u32stat = 0;
+  measDev.prmContinuous = 0;
+  measDev.prmPumpPeriod = 3000;
   measDev.sendProto = PROTO_CSV;
   measDev.secsStart = 0;
   measDev.msecStart = 0;
@@ -539,10 +579,10 @@ void measInit( void ){
   measDev.sendProto = PROTO_CSV;
   measDev.relPulse = REL_PULSE_DEF;
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX );
-  buffer_Init( &rxBuf, receivBuff, ARRAY_SIZE(receivBuff) );
-  measPrmClean();
+  buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
+  measPrmClean();
   if( _alcoKn[0].alcoKx != 0 ){
     alcoKnFlag = SET;
     for( uint8_t i = 0; i < ALCO_KN_NUM; i++ ){

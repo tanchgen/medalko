@@ -103,7 +103,7 @@ void adcStart( void );
 //
 
 
-#if VDD_AVG  || TERM_AVG || ALCO_AVG
+#if VDD_AVG || _5V_AVG ||  TERM_AVG || ALCO_AVG
 
 // Расчет скользящего среднего беззнакового
 static inline void movAvgU( uint32_t *avg, uint32_t pt, const uint8_t kavg ){
@@ -409,7 +409,6 @@ void adcProcess( uintptr_t arg ){
           pData->prm = (uint16_t)(((adcPrmDef[i].prmK/((uint32_t)adcHandle.adcVprm[ADC_PRM_VDD])) * VREFINT_VOL) / 1000);
           break;
         }
-#if PRESS_ADC
         case ADC_PRM_PRESS:{     // Давление Pa = mV
           // Вычисляем напряжение
 #if PRESS_AVG
@@ -443,7 +442,6 @@ void adcProcess( uintptr_t arg ){
             movAvgF( &ftmp, adcHandle.adcVprm[ADC_PRM_PRESS], PRESS_AVG_IDX * 5 );
             adcHandle.pressAvg = ftmp;
           }
-
 #else // SIMUL
           if( mTick > (simulStart) ){
             if( mTick < (simulStart + 4000) ){
@@ -451,41 +449,59 @@ void adcProcess( uintptr_t arg ){
                 pData->prm += 5;
               }
             }
-            else if( (measState != MEASST_OFF) && (measState < MEASST_END_PROB) ){
-              if(pData->prm > 100 ){
-                pData->prm -= 1;
-              }
-            }
-            else if(pData->prm > 0 ){
+//            else if( (measState != MEASST_OFF) && (measState < MEASST_END_PROB) ){
+//              if(pData->prm > 100 ){
+//                pData->prm -= 1;
+//              }
+//            }
+            else if(pData->prm > 1 ){
               pData->prm -= 1;
             }
           }
-#endif // SIMUL
           pressProc( pData->prm, &adcHandle.pressCount );
-
-          break;
+#endif // SIMUL
         }
-#endif // PRESS_ADC
-        case ADC_PRM_TERM: {
-          // Вычисляем напряжение
-          uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
-          // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
-          adcHandle.adcData[i].prm = (int32_t)(10.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 2730;
-          termProc( adcHandle.adcData[i].prm );
-          break;
-        }
-        case ADC_PRM_ALCO:
-          // Вычисляем напряжение
+        break;
+      case ADC_PRM_TERM: {
+        // Вычисляем напряжение
+        uint16_t rt = (R1 * 1000UL) / (((ADC_KPARAM_0 * 1000) / adcHandle.adcVprm[i]) - 1000);
+        // Расчет температуры T1 = 1 / ((ln(R1) – ln(R2)) / B + 1 / T2), где T1 в 0.001 гр.К, T2 - в гр.К
+        adcHandle.adcData[i].prm = (int32_t)(10.0 / (((log(rt) - LN_RT25) / B25_100) + _1_298K)) - 2730;
+        termProc( adcHandle.adcData[i].prm );
+        break;
+      }
+      case ADC_PRM_ALCO:      // Просто напряжение
+        // Вычисляем напряжение
 #if !SIMUL
           adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (/*adcHandle.alcoAvg -*/ adcHandle.adcVprm[i])) / adcPrmDef[i].prmK);
 #else // SIMUL
-          if( measDev.status.measStart == RESET ){
-//            adcHandle.adcData[i].prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * adcHandle.adcVprm[i]) / adcKprm[i]);
-            adcHandle.adcData[i].prm = 1500;
+        {
+          static int16_t atmp;
+          static FlagStatus alcoSt;
+          static int8_t incr;
+
+          if( alcoSt == RESET ) {
+            if( measDev.status.alcoSimOn ) {
+              alcoSt = SET;
+              incr = 10;
+            }
           }
           else {
-            adcHandle.adcData[i].prm -= 4;
+            if( measDev.status.alcoSimOn == RESET ) {
+              alcoSt = RESET;
+              atmp = 0;
+              adcHandle.adcData[i].prm = 0;
+            }
+            else {
+              if( (atmp >= 1500) ){
+                incr = -2;
+              }
+              atmp += incr;
+              assert_param( (atmp < 1520) && (atmp >= 0) );
+              adcHandle.adcData[i].prm = atmp / 10;
+            }
           }
+        }
 #endif // SIMUL
           alcoProc( adcHandle.adcData[i].prm, adcHandle.adcData[ADC_PRM_TERM].prm );
           break;
@@ -576,6 +592,7 @@ void adcMainInit( void ){
   adcDmaInit();
   adcTrigTimInit();
 
+  gpioPinSetup( &gpioPinAlcoRst );
   for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
     if( adcPrmDef[i].gpioPin.gpio != NULL ){
       gpioPinSetup( &(adcPrmDef[i].gpioPin) );

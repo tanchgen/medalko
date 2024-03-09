@@ -1,5 +1,7 @@
 /Debug/
 /swo.log
+/doc/
 /*.hex
 /Simul/
 /doc/
+*.pdf
