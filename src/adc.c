@@ -458,8 +458,8 @@ void adcProcess( uintptr_t arg ){
               pData->prm -= 1;
             }
           }
-          pressProc( pData->prm, &adcHandle.pressCount );
 #endif // SIMUL
+          pressProc( pData->prm, &adcHandle.pressCount );
         }
         break;
       case ADC_PRM_TERM: {
