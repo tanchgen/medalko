@@ -413,7 +413,6 @@ void gpioInit( void ){
   gpioPinSetup( &gpioPinTest );
 #endif // PIN_TEST_EN
 
-  pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   zoomTimInit();
 
   // USB_HOST RESET

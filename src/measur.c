@@ -15,9 +15,9 @@
 #include "measur.h"
 #include "buffer.meas.h"
 
-#if SIMUL
-  extern uint32_t simulStart;
-#endif // SIMUL
+//#if SIMUL
+//  extern uint32_t simulStart;
+//#endif // SIMUL
 
 eMeasState measState = MEASST_OFF;
 FlagStatus measOnNeed = RESET;
@@ -41,6 +41,7 @@ sMeasur measDev;
 int32_t pressAvg;
 
 // ================ Private Function =============================
+void pulseTimInit( TIM_TypeDef * portim, uint16_t tout );
 // ==================================================================
 
 // ----------------------- USB transfer functions ----------------------
@@ -174,16 +175,14 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
     rxBuf++;
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
-      (uint*)&press, (uint*)&measDev.prmPumpPeriod, (uint*)&measDev.prmContinuous );
+      (uint*)&press, (uint*)&measDev.relPulse, (uint*)&measDev.prmContinuous );
 #endif  // ---------------------------------------------------------------------
   measDev.pressLimMinStart = press;
-  // Секунды переводим в мс
-  measDev.prmPumpPeriod *= 1000;
-  if(measDev.prmContinuous &&
-      ((measState == MEASST_OFF) && (measRun == RESET) && (measRunWait != MSTATE_NON)))
-  {
-    timerMod( &measOnCanTimer, TOUT_100);
-  }
+//  if(measDev.prmContinuous &&
+//      ((measState == MEASST_OFF) && (measRun == RESET) && (measRunWait != MSTATE_NON)))
+//  {
+//    timerMod( &measOnCanTimer, TOUT_100);
+//  }
 
   return rxlen;
 }
@@ -206,46 +205,44 @@ void pressProc( int32_t press, uint16_t * count ){
     // Постоянный сбор данных: созраняем полученое значение
     measDev.alcoData.press = press;
   }
-  else {
-    if( measState == MEASST_OFF ){
-      if( (press > measDev.pressLimMinStart) && onCan ){
-        // Давление выше минимального порога - Запускаем процесс забора проб
-        measOnNeed = SET;
-        measDev.tout0 = mTick;
+  if( measState == MEASST_OFF ){
+    if( (press > measDev.pressLimMinStart) && onCan ){
+      // Давление выше минимального порога - Запускаем процесс забора проб
+      measOnNeed = SET;
+      measDev.tout0 = mTick;
+    }
+  }
+  else if( measState < MEASST_END_PROB ){
+    if( (measDev.status.relEnd == RESET) && (press < measDev.pressLimMinStop) ){
+      if( measDev.status.pressFaultLow == RESET ){
+        measDev.status.pressFaultLow = SET;
+        measRunWait = MSTATE_NON;
+        measState = MEASST_FAULT;
       }
     }
-    else if( measState < MEASST_END_PROB ){
-      if( (measDev.status.relEnd == RESET) && (press < measDev.pressLimMinStop) ){
-        if( measDev.status.pressFaultLow == RESET ){
-          measDev.status.pressFaultLow = SET;
-          measRunWait = MSTATE_NON;
-          measState = MEASST_FAULT;
-        }
+    else {
+      if( measDev.status.measStart ){
+        // Забор проб: созраняем полученое значение
+        measDev.alcoData.press = press;
       }
       else {
-        if( measDev.status.measStart ){
-          // Забор проб: созраняем полученое значение
-          measDev.alcoData.press = press;
-        }
-        else {
-          if ( measDev.status.pressOk == RESET ){
-            // Период ПЕРЕД забором проб
-            (*count)++;
-            pressAvg += press;
-            press = pressAvg / *count;
-            if( press >= measPressLimMax ){
-              measDev.tout = measDev.tout0 + MEAS_TIME_MIN;
-            }
-            else {
-              float tmp;
+        if ( measDev.status.pressOk == RESET ){
+          // Период ПЕРЕД забором проб
+          (*count)++;
+          pressAvg += press;
+          press = pressAvg / *count;
+          if( press >= measPressLimMax ){
+            measDev.tout = measDev.tout0 + MEAS_TIME_MIN;
+          }
+          else {
+            float tmp;
 
-              tmp = (((press - measDev.pressLimMinStop) * 1000)/(measPressLimMax - measDev.pressLimMinStop));
-              tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
-              tmp /= 1000;
-              tmp = MEAS_TIME_MAX - tmp;
-              // Корректируем время
-              measDev.tout = measDev.tout0 + tmp;
-            }
+            tmp = (((press - measDev.pressLimMinStop) * 1000)/(measPressLimMax - measDev.pressLimMinStop));
+            tmp *= (MEAS_TIME_MAX - MEAS_TIME_MIN);
+            tmp /= 1000;
+            tmp = MEAS_TIME_MAX - tmp;
+            // Корректируем время
+            measDev.tout = measDev.tout0 + tmp;
           }
         }
       }
@@ -310,7 +307,7 @@ void continueStart( void ){
   timerDel( &measOnCanTimer );
   measBuf_Reset( &measBuf );
   measDev.status.sendStart = SET;
-  measDev.tout = mTick + measDev.prmPumpPeriod;
+  pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
 }
 
 
@@ -324,16 +321,16 @@ void continueStop( void ){
 }
 
 
-void continueProc( void ){
-  if( measDev.tout && (measDev.tout < mTick) ){
-    // Включаем соленоид
-    measDev.status.relStart = SET;
-    measDev.tout = mTick + measDev.prmPumpPeriod;
-#if SIMUL
-    simulStart = mTick;
-#endif // SIMUL
-  }
-}
+//void continueProc( void ){
+//  if( measDev.tout && (measDev.tout < mTick) ){
+//    // Включаем соленоид
+//    measDev.status.relStart = SET;
+//    measDev.tout = mTick + measDev.prmPumpPeriod;
+//#if SIMUL
+//    simulStart = mTick;
+//#endif // SIMUL
+//  }
+//}
 
 
 // Периодически выполняемая функция 
@@ -352,9 +349,9 @@ void measClock( void ){
     if( measDev.prmContinuous == RESET ){
       continueStop();
     }
-    else {
-      continueProc();
-    }
+//    else {
+//      continueProc();
+//    }
   }
 
   if( measDev.status.sendStart ){
@@ -461,7 +458,7 @@ void measClock( void ){
 void measStartClean( void ){
   measDev.status.u32stat = 0;
   measDev.prmContinuous = 0;
-  measDev.prmPumpPeriod = 3000;
+//  measDev.prmPumpPulse = 3000;
   measDev.sendProto = PROTO_CSV;
 }
 
@@ -475,8 +472,9 @@ void measInit( void ){
 //  measDev.alcoData = tmpAd;
   measDev.sendProto = PROTO_CSV;
   measDev.relPulse = REL_PULSE_DEF;
+  pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
   measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
-  buffer_Init( &rxBuf, receivBuff, sizeof(measRecBuff) );
+  buffer_Init( &rxBuf, receivBuff, sizeof(receivBuff) );
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
 }
