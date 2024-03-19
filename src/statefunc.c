@@ -15,7 +15,7 @@
 #include "usb_vcp.h"
 #include "statefunc.h"
 
-uint32_t tmptick = -1;
+static uint32_t tmptick = -1;
 size_t idx;
 
 // Состояние выполнения данного этапа
@@ -61,6 +61,7 @@ inline void stateOff( void ){
     measOnNeed = RESET;
     measRunWait = MSTATE_NON;
     measRun = SET;
+    trace_printf("cont0:%d cont:%d\n", measDev.prmContinuous, measDev.status.cont);
   }
 
   if( measRun == SET ){
@@ -72,6 +73,7 @@ inline void stateOff( void ){
     measStartClean();
     measRunWait = MSTATE_NON;
     trace_printf(":On begin\n");
+    trace_printf("1 cont0:%d cont:%d\n", measDev.prmContinuous, measDev.status.cont);
     measState++;
   }
   else {
@@ -87,6 +89,7 @@ inline void stateOff( void ){
 #if DEBUG_TRACE_RUN
       trace_write(":SYS OFF\n", 9);
 #endif
+      trace_printf("0 cont0:%d cont:%d\n", measDev.prmContinuous, measDev.status.cont);
     }
   }
 }

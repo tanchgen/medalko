@@ -135,7 +135,9 @@ size_t sendTmEnd( uint8_t * buf ){
 // -------------------- Received parcing -----------------------------------------------
 uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
   uint32_t rxlen;
-  uint16_t press;
+  uint press;
+  uint pulse;
+  uint cont;
 
 #if 0     // ------------------- Низкий уровень -----------------------------------
   eRxPrm rxPrmFlag = RX_PRM_NUM;
@@ -175,9 +177,11 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
     rxBuf++;
   }
   rxlen = sscanf( (char*)rxBuf, "{\"pressure_limit\":%u,\"pump_period\":%u,\"broadcast_mode\":%u}", \
-      (uint*)&press, (uint*)&measDev.relPulse, (uint*)&measDev.prmContinuous );
+      &press, &pulse, &cont);
 #endif  // ---------------------------------------------------------------------
   measDev.pressLimMinStart = press;
+  measDev.relPulse = pulse;
+  measDev.prmContinuous = cont;
 //  if(measDev.prmContinuous &&
 //      ((measState == MEASST_OFF) && (measRun == RESET) && (measRunWait != MSTATE_NON)))
 //  {
@@ -290,7 +294,7 @@ void totalProc( void ){
   if( measDev.status.measStart || measDev.status.cont ){
     // Все данные сохранили
     if( measBuf_Write( &measBuf, &measDev.alcoData, 1 ) == 0 ){
-      trace_puts("\t=== Buffer if FULL ===");
+      trace_puts("\t=== Buffer is FULL ===");
     }
   }
 }
@@ -299,13 +303,13 @@ void totalProc( void ){
 void continueStart( void ){
   measDev.status.cont = SET;
   sendState = SEND_CONT;
-  onCan = RESET;
-  measOnNeed = RESET;
-  measState = MEASST_OFF;
-  measRun = RESET;
-  measRunWait = MSTATE_OFF;
-  timerDel( &measOnCanTimer );
-  measBuf_Reset( &measBuf );
+//  onCan = RESET;
+//  measOnNeed = RESET;
+//  measState = MEASST_OFF;
+//  measRun = RESET;
+//  measRunWait = MSTATE_OFF;
+//  timerDel( &measOnCanTimer );
+//  measBuf_Reset( &measBuf );
   measDev.status.sendStart = SET;
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
 }
@@ -405,8 +409,8 @@ void measClock( void ){
 
       if( size != 0 ){
 #ifdef TRACE
-        trace_write( (char*)sendBuf, size );
-        tmpTout = mTick + 10;
+//        trace_write( (char*)sendBuf, size );
+//        tmpTout = mTick + 10;
 #endif // TRACE
         assert_param( size <= 96 );
 #if USB_SIMUL
@@ -417,7 +421,9 @@ void measClock( void ){
         sendTout = mTick + USB_SEND_TOUT;
       }
       else if ( sendState == SEND_END ){
-        measDev.status.sendStart = RESET;
+        if( measDev.status.cont == RESET ){
+          measDev.status.sendStart = RESET;
+        }
         measDev.status.sent = SET;
         sendState = SEND_START;
         sendCount = 0;
@@ -456,8 +462,9 @@ void measClock( void ){
 
 
 void measStartClean( void ){
-  measDev.status.u32stat = 0;
-  measDev.prmContinuous = 0;
+  // Очищаем все флаги, кроме status.cont
+  measDev.status.u32stat &= STATUS_CONT_MASK;
+//  measDev.prmContinuous = 0;
 //  measDev.prmPumpPulse = 3000;
   measDev.sendProto = PROTO_CSV;
 }
@@ -473,8 +480,8 @@ void measInit( void ){
   measDev.sendProto = PROTO_CSV;
   measDev.relPulse = REL_PULSE_DEF;
   pulseTimInit( REL_PULSE_TIM, measDev.relPulse * 10 );
-  measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX, sizeof(measRecBuff) );
-  buffer_Init( &rxBuf, receivBuff, sizeof(receivBuff) );
+  measBuf_Init( &measBuf, measRecBuff, MEAS_SEQ_NUM_MAX );
+  buffer_Init( &rxBuf, receivBuff, RX_BUFF_SIZE );
   measDev.pressLimMinStart = PRESS_LIMIT_MIN;
   measDev.pressLimMinStop = PRESS_LIMIT_MIN - 10;
 }

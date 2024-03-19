@@ -10,8 +10,7 @@
 sMeasRec measRecBuff[MEAS_SEQ_NUM_MAX];
 measBuf_t measBuf;
 
-uint8_t measBuf_Init(measBuf_t* Buffer, sMeasRec * BufferPtr, uint16_t Size, uint16_t recsize ) {
-  (void)recsize;
+uint8_t measBuf_Init(measBuf_t* Buffer, sMeasRec * BufferPtr, uint16_t Size ) {
 	/* Set buffer values to all zeros */
 	memset(Buffer, 0, sizeof(measBuf_t));
 

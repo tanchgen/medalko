@@ -1,5 +1,9 @@
 #include "stm32f10x.h"
 #include "usb_vcp.h"
+#include "times.h"
+#include "gpio.h"
+
+extern sGpioPin gpioPinUsbDp;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Global variables definitions.
@@ -287,84 +291,93 @@ void DIS_TX_EP2()	{
 
 //Manage control tranfers on endpoint 0.
 void usbClock()	{
-		if(USB_RECEIVED_EP0)	{												//If a packet has been received on endpoint 0..
-			USB_RECEIVED_EP0 = 0;												//Reset reception flag endpoint 0.
-			
-			uint8_t* p_mem_8 = (uint8_t*) USB_RX0_BASE_32;						//Point to reception buffer endpoint 0.
-			
-			if( p_mem_8[0]==0x80 && p_mem_8[1]==0x06 ) 	{						//If a descriptor has been requested..
-				
-				if(p_mem_8[5]==0x01)			{								//If REQUEST Device_Descriptor..
-					Send_EP0(Device_Descriptor,18);								//Send the Device_Descriptor.
-					while(USB_TRANSMITTED_EP0==0)	{}							//Wait that the packet has been completely transmitted.
-					USB_TRANSMITTED_EP0=0;		}								//Reset flag trasmission complete. 
-				
-				else if(p_mem_8[5]==0x02)		{								//If REQUEST Configuration_Descriptor..
-					if(p_mem_8[12]==0x09 && p_mem_8[13]==0x00)	{				//If requested the partial Configuration_Descriptor..
-						Send_EP0(Configuration_Descriptor,9);					//Send the partial Configuration_Descriptor.
-						while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
-						USB_TRANSMITTED_EP0=0;	}								//Reset flag trasmission complete. 
-					else					{									//If requested the complete Configuration_Descriptor..
-						SET_DATA1_EP0();										//Set transmission packet PID to DATA1.
-						Send_EP0(Configuration_Descriptor_0,64);				//Send the first part of the Configuration_Descriptor.
-						while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
-						USB_TRANSMITTED_EP0=0;									//Reset flag trasmission complete. 
-						SET_DATA0_EP0();										//Set transmission packet PID to DATA0.
-						Send_EP0(Configuration_Descriptor_2,3);					//Send the second part of the Configuration_Descriptor.
-						while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
-						USB_TRANSMITTED_EP0=0;	}	}							//Reset flag trasmission complete.  
-										
-				else if(p_mem_8[5]==0x06)		{								//If REQUEST DEVICE_QUALIFIER_DESCIPTOR..
-					STALL_TX_EP0();				}								//Send REQUEST_ERROR (Because USB1.1 doesn't support that).
-				}	
-						
-			else if ( p_mem_8[0]==0x00 && p_mem_8[1]==0x05 )	{				//If REQUEST SET_ADDRESS..
-				Send_EP0(0,0);													//Send ACK.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
-				USB_TRANSMITTED_EP0=0;											//Reset flag trasmission complete. 
-				USB_DADDR |= (p_mem_8[4] & 0x7F);								//Set the received address in USB peripheral.
-			}
-			
-			else if ( p_mem_8[0]==0x00 && p_mem_8[1]==0x09 )	{				//If REQUEST SET_CONFIGURATION..
-				Send_EP0(0,0);													//Send ACK.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
-				USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete. 
-				
-			else if ( p_mem_8[0]==0xA1 && p_mem_8[1]==0x21 )	{				//If REQUEST GET_LINE_CODING..
-				Send_EP0(Line_Coding,7);										//Send the LINE_CODING.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the packet has been completely transmitted.
-				USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.  
-			
-			else if ( p_mem_8[0]==0x21 && p_mem_8[1]==0x22 )	{				//If REQUEST SET_CONTROL_LINE_STATE..
-				Control_Line_State[0] = p_mem_8[4];								//Set the received CONTROL_LINE_STATE in USB peripheral.
-				Control_Line_State[1] = p_mem_8[5];								//Set the received CONTROL_LINE_STATE in USB peripheral.
-				Send_EP0(0,0);													//Send ACK.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
-				USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
-			
-			else if ( p_mem_8[0]==0x21 && p_mem_8[1]==0x20 )	{				//If REQUEST SET_LINE_CODING..
-				EN_RX_EP0();													//Enable reception on endpoint 0.
-				while(USB_RECEIVED_EP0==0) {};									//Wait the reception of the DATA packet.
-				USB_RECEIVED_EP0=0;												//Reset flag reception complete.
-				Line_Coding[0] = p_mem_8[0];									//Set the received LINE_CODING in USB peripheral
-				Line_Coding[1] = p_mem_8[1];                                    //Set the received LINE_CODING in USB peripheral
-				Line_Coding[2] = p_mem_8[4];                                    //Set the received LINE_CODING in USB peripheral
-				Line_Coding[3] = p_mem_8[5];                                    //Set the received LINE_CODING in USB peripheral
-				Line_Coding[4] = p_mem_8[8];                                    //Set the received LINE_CODING in USB peripheral
-				Line_Coding[5] = p_mem_8[9];                                    //Set the received LINE_CODING in USB peripheral
-				Line_Coding[6] = p_mem_8[12];                                   //Set the received LINE_CODING in USB peripheral
-				SET_DATA1_EP0();												//Set transmission packet PID to DATA1.
-				Send_EP0(0,0);													//Send ACK.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
-				USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+  uint32_t tmptick;
 
-			else if ( p_mem_8[0]==0x02 && p_mem_8[1]==0x01 )	{				//If REQUEST CLEAR_FEATURE..
-				Send_EP0(0,0);                                                  //Send ACK.
-				while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
-				USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
-			
-			EN_RX_EP0();														//Enable reception on endpoint 0.
-		}							//END EP0.
+  if(USB_RECEIVED_EP0)	{												//If a packet has been received on endpoint 0..
+    USB_RECEIVED_EP0 = 0;												//Reset reception flag endpoint 0.
+
+    uint8_t* p_mem_8 = (uint8_t*) USB_RX0_BASE_32;						//Point to reception buffer endpoint 0.
+
+    if( p_mem_8[0]==0x80 && p_mem_8[1]==0x06 ) 	{						//If a descriptor has been requested..
+
+      if(p_mem_8[5]==0x01)			{								//If REQUEST Device_Descriptor..
+        Send_EP0(Device_Descriptor,18);								//Send the Device_Descriptor.
+        while(USB_TRANSMITTED_EP0==0)	{}							//Wait that the packet has been completely transmitted.
+        USB_TRANSMITTED_EP0=0;		}								//Reset flag trasmission complete.
+
+      else if(p_mem_8[5]==0x02)		{								//If REQUEST Configuration_Descriptor..
+        if(p_mem_8[12]==0x09 && p_mem_8[13]==0x00)	{				//If requested the partial Configuration_Descriptor..
+          Send_EP0(Configuration_Descriptor,9);					//Send the partial Configuration_Descriptor.
+          while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
+          USB_TRANSMITTED_EP0=0;	}								//Reset flag trasmission complete.
+        else					{									//If requested the complete Configuration_Descriptor..
+          SET_DATA1_EP0();										//Set transmission packet PID to DATA1.
+          Send_EP0(Configuration_Descriptor_0,64);				//Send the first part of the Configuration_Descriptor.
+          while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
+          USB_TRANSMITTED_EP0=0;									//Reset flag trasmission complete.
+          SET_DATA0_EP0();										//Set transmission packet PID to DATA0.
+          Send_EP0(Configuration_Descriptor_2,3);					//Send the second part of the Configuration_Descriptor.
+          while(USB_TRANSMITTED_EP0==0)	{}						//Wait that the packet has been completely transmitted.
+          USB_TRANSMITTED_EP0=0;	}	}							//Reset flag trasmission complete.
+
+      else if(p_mem_8[5]==0x06)		{								//If REQUEST DEVICE_QUALIFIER_DESCIPTOR..
+        STALL_TX_EP0();				}								//Send REQUEST_ERROR (Because USB1.1 doesn't support that).
+      }
+
+    else if ( p_mem_8[0]==0x00 && p_mem_8[1]==0x05 )	{				//If REQUEST SET_ADDRESS..
+      Send_EP0(0,0);													//Send ACK.
+      while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
+      USB_TRANSMITTED_EP0=0;											//Reset flag trasmission complete.
+      USB_DADDR |= (p_mem_8[4] & 0x7F);								//Set the received address in USB peripheral.
+    }
+
+    else if ( p_mem_8[0]==0x00 && p_mem_8[1]==0x09 )	{				//If REQUEST SET_CONFIGURATION..
+      Send_EP0(0,0);													//Send ACK.
+      while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
+      USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+
+    else if ( p_mem_8[0]==0xA1 && p_mem_8[1]==0x21 )	{				//If REQUEST GET_LINE_CODING..
+      Send_EP0(Line_Coding,7);										//Send the LINE_CODING.
+      while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the packet has been completely transmitted.
+      USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+
+    else if ( p_mem_8[0]==0x21 && p_mem_8[1]==0x22 )	{				//If REQUEST SET_CONTROL_LINE_STATE..
+      Control_Line_State[0] = p_mem_8[4];								//Set the received CONTROL_LINE_STATE in USB peripheral.
+      Control_Line_State[1] = p_mem_8[5];								//Set the received CONTROL_LINE_STATE in USB peripheral.
+      Send_EP0(0,0);													//Send ACK.
+      tmptick = mTick + 500;
+      while(USB_TRANSMITTED_EP0==0)	{
+        //Wait that the ACK has been sent.
+        if( tmptick < mTick ){
+          usbInit();
+          return;
+        }
+      }
+      USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+
+    else if ( p_mem_8[0]==0x21 && p_mem_8[1]==0x20 )	{				//If REQUEST SET_LINE_CODING..
+      EN_RX_EP0();													//Enable reception on endpoint 0.
+      while(USB_RECEIVED_EP0==0) {};									//Wait the reception of the DATA packet.
+      USB_RECEIVED_EP0=0;												//Reset flag reception complete.
+      Line_Coding[0] = p_mem_8[0];									//Set the received LINE_CODING in USB peripheral
+      Line_Coding[1] = p_mem_8[1];                                    //Set the received LINE_CODING in USB peripheral
+      Line_Coding[2] = p_mem_8[4];                                    //Set the received LINE_CODING in USB peripheral
+      Line_Coding[3] = p_mem_8[5];                                    //Set the received LINE_CODING in USB peripheral
+      Line_Coding[4] = p_mem_8[8];                                    //Set the received LINE_CODING in USB peripheral
+      Line_Coding[5] = p_mem_8[9];                                    //Set the received LINE_CODING in USB peripheral
+      Line_Coding[6] = p_mem_8[12];                                   //Set the received LINE_CODING in USB peripheral
+      SET_DATA1_EP0();												//Set transmission packet PID to DATA1.
+      Send_EP0(0,0);													//Send ACK.
+      while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
+      USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+
+    else if ( p_mem_8[0]==0x02 && p_mem_8[1]==0x01 )	{				//If REQUEST CLEAR_FEATURE..
+      Send_EP0(0,0);                                                  //Send ACK.
+      while(USB_TRANSMITTED_EP0==0)	{}								//Wait that the ACK has been sent.
+      USB_TRANSMITTED_EP0=0;							}				//Reset flag trasmission complete.
+
+    EN_RX_EP0();														//Enable reception on endpoint 0.
+  }							//END EP0.
 		
 		if(USB_RECEIVED_EP2)	{												//If a packet has been received on endpoint 1..
 			USB_RECEIVED_EP2 = 0;												//Reset flag reception endpoint 2.
@@ -457,6 +470,11 @@ void USB_LP_CAN1_RX0_IRQHandler(void)	{ if(USB_ISTR & 0x0400) 	{						//If recei
 
 
 void usbInit( void )   {
+  // USB_HOST RESET
+  gpioPinSetup( &gpioPinUsbDp );
+  mDelay( 200 );
+  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
+
   RCC_CFGR_USB  &=0xFFBFFFFF;           /*USB CLOCK PRESCALER = 1.5*/
   RCC_APB1ENR_USB |= 0x00800000;          /*TURN ON USB CLOCK*/
   RCC_APB2ENR_USB |= 0x00000005;          /*GPIOA ON. ALTERNATE FUNCTION IO ON.*/

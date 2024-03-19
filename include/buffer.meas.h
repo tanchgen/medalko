@@ -83,7 +83,7 @@ extern measBuf_t measBuf;
  *            - 0: Buffer initialized OK
  *            - > 0: Buffer initialization error. Malloc has failed with allocation
  */
-uint8_t measBuf_Init(measBuf_t* Buffer, sMeasRec * BufferPtr, uint16_t Size, uint16_t recsize );
+uint8_t measBuf_Init(measBuf_t* Buffer, sMeasRec * BufferPtr, uint16_t Size );
 
 /**
  * @brief  Free memory for buffer allocated using @ref malloc
