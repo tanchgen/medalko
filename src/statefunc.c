@@ -15,7 +15,7 @@
 #include "usb_vcp.h"
 #include "statefunc.h"
 
-static uint32_t tmptick = -1;
+// static uint32_t tmptick = -1;
 size_t idx;
 
 // Состояние выполнения данного этапа
@@ -201,7 +201,7 @@ inline void stateEnd( void ){
         measRunWait = MSTATE_ON;
         break;
       case MSTATE_ON:
-        if( measDev.status.sent ){
+        if( measDev.status.sent || measDev.status.cont ){
           measRunWait = MSTATE_NON;
           measState++;
         }
