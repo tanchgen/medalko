@@ -266,23 +266,23 @@ void termProc( int32_t term ){
 
 // Обработка результатов ADC_ALCO
 void alcoProc( int32_t alco ){
-  if( measDev.status.cont ){
-    // Постоянный сбор данных: созраняем полученое значение
+  if( measDev.status.measStart ){
+    // Забор проб: созраняем полученое значение
     measDev.alcoData.alco = alco;
+    if( alco < measAlkoLimMin ){
+      // Значение ALCO упало ниже порога - будем завершать данный цикл
+      measDev.status.alcoLow = SET;
+#if SIMUL
+      measDev.status.alcoSimOn = RESET;
+#endif //SIMUL
+    }
   }
   else {
-    if( measDev.status.measStart ){
-      // Забор проб: созраняем полученое значение
+    if( measDev.status.cont ){
+      // Постоянный сбор данных: созраняем полученое значение
       measDev.alcoData.alco = alco;
-      if( alco < measAlkoLimMin ){
-        // Значение ALCO упало ниже порога - будем завершать данный цикл
-        measDev.status.alcoLow = SET;
-#if SIMUL
-        measDev.status.alcoSimOn = RESET;
-#endif //SIMUL
-      }
     }
-    else if( alco > measAlkoLimMin ){
+    if( alco > measAlkoLimMin ){
       measDev.status.alcoHi = SET;
     }
   }
@@ -317,8 +317,7 @@ void continueStart( void ){
 
 void continueStop( void ){
   measDev.status.cont = RESET;
-  sendState = SEND_START;
-  measDev.status.sendStart = RESET;
+  sendState = SEND_END;
   timerMod( &measOnCanTimer, TOUT_1500 );
   // Очистка буфера
   measBuf_Reset( &measBuf );
@@ -350,7 +349,8 @@ void measClock( void ){
   }
 #endif // defined(TRACE)
   if( measDev.status.cont ){
-    if( measDev.prmContinuous == RESET ){
+    if( (measDev.prmContinuous == RESET) && \
+        ((measRun == RESET) && (measState == MEASST_OFF)) ){
       continueStop();
     }
 //    else {
