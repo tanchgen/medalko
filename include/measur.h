@@ -52,7 +52,7 @@ typedef enum {
 typedef enum {
 //  RX_PRM_NULL,
   RX_PRM_PRESS,
-  RX_PRM_PERIOD,
+//  RX_PRM_PERIOD,
   RX_PRM_CONTINUE,
   RX_PRM_NUM
 } eRxPrm;
@@ -66,19 +66,20 @@ typedef struct {
 
 typedef union _sMeasStatus {
   struct {
-    uint32_t measStart: 1;
-    uint32_t pressOk: 1;
-    uint32_t pressFaultLow: 1;
-    uint32_t alcoLow: 1;
-    uint32_t alcoHi: 1;
+    uint32_t measStart: 1;      // 0
+    uint32_t pressOk: 1;        // 1
+    uint32_t pressFaultLow: 1;  // 2
+    uint32_t alcoLow: 1;        // 3
+    uint32_t alcoHi: 1;         // 4
+    uint32_t relStart: 1;       // 5
+    uint32_t relEnd: 1;         // 6
+#define STATUS_CONT_MASK        (0x3 << 7)
+    uint32_t cont: 1;           // 7 Флаг постоянной передачи
+    uint32_t sendStart: 1;      // 8
+    uint32_t sent: 1;           // 9
 #if SIMUL
-    uint32_t alcoSimOn: 1;
+    uint32_t alcoSimOn: 1;      // 10
 #endif //SIMUL
-    uint32_t relStart: 1;
-    uint32_t relEnd: 1;
-    uint32_t sendStart: 1;
-    uint32_t sent: 1;
-    uint32_t cont: 1;         // Флаг постоянной передачи
   };
   uint32_t u32stat;
 } uMeasStatus;
@@ -136,7 +137,10 @@ typedef struct _sMeasur {
 
   float pressLimMinStart ;
   float pressLimMinStop ;
+
+#if SIMUL
   float pressLimMax;
+#endif // SIMUL
 
   float alcoLimMinStart;
   float alcoLimMinStop;
@@ -145,14 +149,9 @@ typedef struct _sMeasur {
   float tempLimMin;
   float tempLimMax;
 
-  union {                       // Параметры, принимаемые сверху
-    struct {
-      uint16_t prmPressMin;             // Нижний порог давления
-      uint16_t prmPumpPeriod;           // Период срабатывания соленоида
-      uint16_t prmContinuous;             // Флаг непрерывной
-    };
-    uint16_t receivPrm[RX_PRM_NUM];
-  };
+  uint16_t prmPressMin;             // Нижний порог давления
+  uint16_t prmContinuous;             // Флаг непрерывной
+
   uint32_t contRelTout;
   uint16_t alcoK0;              // Постоянный коэфф. датчика алкоголя (k * 10000)
   sAlcoKn alcoKn[ALCO_KN_NUM];            // Набор данных для Кусочно-Линейной аппроксимации
@@ -177,6 +176,6 @@ void measInit( void );
 
 void continueStart( void );
 void continueStop( void );
-void continueProc( void );
+//void continueProc( void );
 
 #endif /* MEASUR_H_ */

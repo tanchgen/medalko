@@ -59,12 +59,10 @@ static void measOnCan(uintptr_t arg){
   if( measDev.prmContinuous ){
     continueStart();
   }
-  else {
-    onCan = SET;
+  onCan = SET;
 #if SIMUL
-    simulStart = mTick + 2000;
+  simulStart = mTick + 2000;
 #endif // SIMUL
-  }
 }
 
 
@@ -75,10 +73,10 @@ static void measOnCan(uintptr_t arg){
   *
   * @retval none
   */
-//static void alcoOffTout(uintptr_t arg){
-//  (void)arg;
-//  gpioPinSetNow( &gpioPinAlcoRst );
-//}
+static void alcoOffTout(uintptr_t arg){
+  (void)arg;
+  gpioPinSetNow( &gpioPinAlcoRst );
+}
 
 
 ///**
@@ -406,14 +404,9 @@ void gpioInit( void ){
 //  mDelay( 200 );
 //  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
 
-  // USB_HOST RESET
-  gpioPinSetup( &gpioPinUsbDp );
-  mDelay( 200 );
-  gpioPinUsbDp.gpio->BSRR = gpioPinUsbDp.pin;
-
   // ----------- TIMERS ---------------------------
   timerSetup( &measOnCanTimer, measOnCan, (uintptr_t)NULL );
-//  timerSetup( &alcoOffTimer, alcoOffTout, (uintptr_t)NULL);
+  timerSetup( &alcoOffTimer, alcoOffTout, (uintptr_t)NULL);
 //  timerSetup( &pwrOffToutTimer, pwrOffTout, (uintptr_t)NULL);
 }
 
