@@ -22,7 +22,7 @@
 #define REL_PULSE_DEF     200     // Длина импульса реле по умолчанию
 #define ALCO_TOUT_MIN     500     // Время ожидания срабатывания порога ALCO после выключения соленоида
 #define ALCO_TOUT_MAX     10000   // Максимальное время измерения ALCO
-#define PRESS_LIMIT_MIN   50
+#define PRESS_LIMIT_MIN   250
 
 typedef enum {
   PROTO_JSON,

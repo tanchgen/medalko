@@ -79,12 +79,12 @@ size_t sendTmCont( uint8_t * buf ){
   if( measBuf_Read( &measBuf, &rec, 1 ) != 0 ){
 #ifdef  USE_FULL_ASSERT
     if( measDev.status.cont ){
-      proto = PROTO_JSON;
+//      proto = PROTO_JSON;
       assert_param( sendCount == 0 );
     }
-    else {
+//    else {
       proto = measDev.sendProto;
-    }
+//    }
 #endif // USE_FULL_ASSERT
 
     if( proto == PROTO_JSON ){
