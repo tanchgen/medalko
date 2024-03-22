@@ -79,12 +79,12 @@ size_t sendTmCont( uint8_t * buf ){
   if( measBuf_Read( &measBuf, &rec, 1 ) != 0 ){
 #ifdef  USE_FULL_ASSERT
     if( measDev.status.cont ){
-//      proto = PROTO_JSON;
+      proto = PROTO_JSON;
       assert_param( sendCount == 0 );
     }
-//    else {
+    else {
       proto = measDev.sendProto;
-//    }
+    }
 #endif // USE_FULL_ASSERT
 
     if( proto == PROTO_JSON ){
@@ -190,7 +190,8 @@ uint32_t receivParse( uint8_t * rxBuf, uint32_t rxSizeMax ){
                 &press, &pulse, &cont );
   measDev.prmPressMin = max( press, 40 );  // Нижний порог = 30
   measDev.relPulse = max(pulse, 5000);
-  measDev.prmContinuous = (cont)? SET : RESET;  // Или 0, или 1
+//  measDev.prmContinuous = (cont)? SET : RESET;  // Или 0, или 1
+  measDev.prmContinuous = RESET;  // Всегда НЕ непрерывно
   measDev.pressLimMinStart = measDev.prmPressMin;
   measDev.pressLimMinStop = measDev.prmPressMin - 10;
 #if SIMUL
