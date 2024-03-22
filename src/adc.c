@@ -410,6 +410,7 @@ void adcProcess( uintptr_t arg ){
           break;
         }
         case ADC_PRM_PRESS:{     // Давление Pa = mV
+#if !SIMUL
           // Вычисляем напряжение
 #if PRESS_AVG
           static float fpress;
@@ -428,7 +429,6 @@ void adcProcess( uintptr_t arg ){
 
           pData->prm = ((adcHandle.adcData[ADC_PRM_VDD].prm * (adcHandle.pressAvg - adcHandle.adcVprm[i])) / adcPrmDef[i].prmK)/* - PRESS_NUL*/;
 #endif //PRESS_AVG  || ALCO_AVG
-#if !SIMUL
           if( (pData->prm > (PRESS_LIMIT_MIN * 30)) || (pData->prm < (PRESS_LIMIT_MIN * -30)) ){
             pData->prm = 0;
           }
@@ -445,7 +445,7 @@ void adcProcess( uintptr_t arg ){
 #else // SIMUL
           if( mTick > (simulStart) ){
             if( mTick < (simulStart + 4000) ){
-              if(pData->prm < 300 ) {
+              if(pData->prm < measDev.pressLimMax ) {
                 pData->prm += 5;
               }
             }
@@ -592,7 +592,7 @@ void adcMainInit( void ){
   adcDmaInit();
   adcTrigTimInit();
 
-  gpioPinSetup( &gpioPinAlcoRst );
+//  gpioPinSetup( &gpioPinAlcoRst );
   for( eAdcPrm i = 0; i < ADC_PRM_NUM; i++ ){
     if( adcPrmDef[i].gpioPin.gpio != NULL ){
       gpioPinSetup( &(adcPrmDef[i].gpioPin) );
